@@ -3,48 +3,21 @@
 namespace bee
 {
 
-Ast_Entity *Frame::find(std::string_view name)
+Ast_Entity *Ast_Frame::find(std::string_view name)
 {
     if (auto match = defs.find(name); match != defs.end())
-        return match->second;
+        return &match->second;
     return owner != NULL ? owner->find(name) : NULL;
 }
 
-void Frame::free()
+Ast_Frame *Ast::stack_push()
 {
-    for (auto &[name, entity] : defs)
-    {
-        delete entity;
-    }
+    return frame = &stack.push(Ast_Frame{.owner = frame});
 }
 
-void Ast::free()
+Ast_Frame *Ast::stack_pop()
 {
-    for (Ast_Expr *expr : exprs)
-    {
-        delete expr;
-    }
-    for (usize i = 0; i < stack.size; i++)
-    {
-        stack.buffer[i].free();
-        stack.pop();
-    }
-}
-
-Ast_Expr *Ast::expr_push(Ast_Expr *expr)
-{
-    return exprs.emplace_back(expr);
-}
-
-Frame *Ast::stack_push()
-{
-    return (frame = &stack.push(Frame{.owner = frame}));
-}
-
-Frame *Ast::stack_pop()
-{
-    stack.back()->free();
-    return (frame = stack.pop());
+    return frame = stack.pop();
 }
 
 } // namespace bee

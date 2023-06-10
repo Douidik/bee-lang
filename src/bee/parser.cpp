@@ -1,6 +1,7 @@
 #include "parser.hpp"
 #include "entity.hpp"
 #include "escape_sequence.hpp"
+#include "type_system.hpp"
 #include "var.hpp"
 #include <charconv>
 #include <limits>
@@ -10,87 +11,65 @@ namespace bee
 
 Parser::Parser(Scanner &scanner) : scanner{scanner} {}
 
-Ast Parser::parse()
+void Parser::parse()
 {
-    Frame *main = ast.stack_push();
-    def_standard_types(main);
+    Ast_Frame *main = ast.stack_push();
+    type_system.def_atom_types(&ast);
 
-    while (!scanner.eof())
+    while (!eof())
     {
-        parse_expr(Token_NewLine);
+        parse_expr({Token_NewLine, Token_Eof});
     }
-    return ast;
 }
 
-std::vector<Ast_Expr *> Parser::parse_compound(Token_Type sep_type, Token_Type end_type)
+std::vector<Ast_Expr *> Parser::parse_compound(Token_Types sep_types, Token_Types end_types)
 {
     std::vector<Ast_Expr *> compound;
     Ast_Expr *expr = NULL;
     Token end;
 
-    while (!(end = scan({end_type, Token_Eof})).ok)
+    while (!(end = scan(end_types)).ok and !eof())
     {
-        if (Ast_Expr *expr = parse_expr(sep_type))
+        if (Ast_Expr *expr = parse_expr(sep_types))
             compound.push_back(expr);
     }
 
     if (!end.ok)
     {
-        throw errorf(end, "expected '{:s}' got '{:s}'", token_typename(end_type), token_typename(end.type));
+        throw error_expected(end, end_types);
     }
 
     return compound;
 }
 
-Ast_Expr *Parser::parse_expr(Token_Type end_type)
+Ast_Expr *Parser::parse_expr(Token_Types end_types)
 {
     Ast_Expr *head = NULL;
     Token end;
 
-    while (!(end = scan({end_type, Token_Eof})).ok)
+    while (!(end = scan(end_types)).ok and !eof())
     {
-        if (Ast_Expr *expr = parse_expected_expr(head, end_type))
+        if (Ast_Expr *expr = parse_expected_expr(head, end_types))
             head = expr;
     }
 
-    if (end.type != end_type)
+    if (!end.ok)
     {
-        throw errorf(end, "expected '{:s}' got '{:s}'", token_typename(end_type), token_typename(end.type));
+        throw error_expected(end, end_types);
     }
 
     return head;
-
-    // while (!scanner.eof())
-    // {
-    //     if (end = scan(end_type); end.ok)
-    //     {
-    //         return head;
-    //     }
-
-    //     if (Ast_Expr *expr = parse_expected_expr(head, end_type))
-    //     {
-    //         head = expr;
-    //     }
-    //     else
-    //     {
-    //         if (end = scan(end_type); !end.ok)
-    //         {
-    //             break; // goto error
-    //         }
-    //         return head;
-    //     }
-    // }
 }
 
-Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
+Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Types end_types)
 {
     // '+' / '-' Disambiguation, Acts as a sign if there is no previous expression
     if (!prev)
     {
         if (Token sign = scan({Token_Add, Token_Sub}); sign.ok)
         {
-            Ast_Expr *expr = parse_expected_expr(NULL, end_type);
-            return ast.expr_push(new Unary_Expr{sign, Prev_Expr, expr});
+            Ast_Expr *expr = parse_expected_expr(NULL, end_types);
+            return ast.expr_push<Unary_Expr>(sign, Prev_Expr, expr);
         }
     }
 
@@ -99,40 +78,30 @@ Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
         Token_Float,   Token_Assign,  Token_And,        Token_Or,          Token_Add,          Token_Sub,
         Token_Mul,     Token_Div,     Token_Mod,        Token_Bin_Not,     Token_Bin_And,      Token_Bin_Or,
         Token_Bin_Xor, Token_Shift_L, Token_Shift_R,    Token_Eq,          Token_Not_Eq,       Token_Less,
-        Token_Less_Eq, Token_Greater, Token_Greater_Eq, Token_Scope_Begin, Token_Parent_Begin,
+        Token_Less_Eq, Token_Greater, Token_Greater_Eq, Token_Scope_Begin, Token_Parent_Begin, Token_Define,
+        Token_Declare,
     });
 
     switch (token.type)
     {
     case Token_Scope_Begin: {
         ast.stack_push();
-        Scope_Expr *scope = new Scope_Expr({
-            parse_compound(Token_NewLine, Token_Scope_End),
-        });
+        auto body = parse_compound({Token_NewLine}, {Token_Scope_End});
         ast.stack_pop();
-        return ast.expr_push(scope);
+        Scope_Expr scope{.body = {body.begin(), body.end()}};
+        return ast.expr_push<Scope_Expr>(scope);
     }
 
     case Token_Id: {
         Ast_Entity *entity = ast.frame->find(token.expr);
+        Ast_Expr *ast_expr = ast.expr_push<Id_Expr>(token, entity);
 
-        if (entity != NULL)
-            return ast.expr_push(new Id_Expr{entity});
-
-        Token def_token = scan({Token_Declare, Token_Define});
-        if (def_token.ok)
+        if (Token op = scan({Token_Define, Token_Declare}); op.ok)
         {
-            Ast_Expr *expr = parse_expected_expr(NULL, end_type);
-            if (!expr)
-            {
-                throw errorf(def_token, "expected expression after '{:s}'", token_typename(def_token.type));
-            }
-
-            // TODO! resolve underlying expression type
-            return ast.expr_push(new Def_Expr{entity, expr, NULL, def_token});
+            return parse_def(ast_expr, op, end_types);
         }
 
-        throw errorf(token, "use of undeclared identifier");
+        return ast.expr_push<Id_Expr>(token, entity);
     }
 
     case Token_Char: {
@@ -147,20 +116,19 @@ Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
             throw errorf(token, "wide character constant");
         }
 
-        return ast.expr_push(new Char_Expr{data.at(0)});
+        return ast.expr_push<Char_Expr>(data[0]);
     }
 
     case Token_Str: {
         std::string_view body = token.expr.substr(0, token.expr.size() - 1);
         std::string data = un_escape_string(body);
-        return ast.expr_push(new Str_Expr{data});
+        return ast.expr_push<Str_Expr>(data);
     }
 
     case Token_Int_Bin:
     case Token_Int_Dec:
     case Token_Int_Hex: {
         u64 data;
-        u32 size;
         std::from_chars_result error;
 
         switch (token.type)
@@ -183,10 +151,8 @@ Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
             throw errorf(token, "bad integer constant");
         }
 
-        return ast.expr_push(new Int_Expr{
-            data,
-            data > std::numeric_limits<u32>::max() ? (u32)8 : (u32)4,
-        });
+        u32 size = data > std::numeric_limits<u32>::max() ? 8 : 4;
+        return ast.expr_push<Int_Expr>(data, size);
     }
 
     case Token_Float: {
@@ -197,10 +163,8 @@ Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
             throw errorf(token, "bad float constant");
         }
 
-        return ast.expr_push(new Float_Expr{
-            data,
-            data > std::numeric_limits<f32>::max() ? (u32)8 : (u32)4,
-        });
+        u32 size = data > std::numeric_limits<f32>::max() ? (u32)8 : (u32)4;
+        return ast.expr_push<Float_Expr>(data, size);
     }
 
     case Token_Assign:
@@ -225,15 +189,28 @@ Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
     case Token_Greater_Eq: {
         if (!prev)
         {
-            throw errorf(token, "missing prev operand for binary expressione");
+            throw errorf(token, "missing prev-operand for binary expression");
         }
-        Ast_Expr *post = parse_expected_expr(NULL, end_type);
+        Ast_Expr *post = parse_expected_expr(NULL, end_types);
         if (!post)
         {
-            throw errorf(token, "missing post operand for binary expressione");
+            throw errorf(token, "missing post-operand for binary expression");
         }
-        // TODO! Check if operands 'does_cast()'
-        return ast.expr_push(new Binary_Expr{token, prev, post});
+        Ast_Entity *type_prev = type_system.type_expr(prev);
+        Ast_Entity *type_post = type_system.type_expr(prev);
+        u32 cast = type_system.type_cast(type_prev, type_post);
+
+        if (cast < Type_Cast_Transmuted and type_prev->kind & Ast_Entity_Atom)
+        {
+            return ast.expr_push<Binary_Expr>(token, prev, post);
+        }
+        else
+        {
+            std::string_view type_prev_name = ast_entity_kind_name(type_prev->kind);
+            std::string_view type_post_name = ast_entity_kind_name(type_post->kind);
+            throw errorf(token, "cannot perform binary expression: <{}> {} <{}>", type_prev_name, token.expr,
+                         type_post_name);
+        }
     }
 
     default:
@@ -241,12 +218,66 @@ Ast_Expr *Parser::parse_expected_expr(Ast_Expr *prev, Token_Type end_type)
     }
 }
 
-Token Parser::scan(Token_Type type)
+Ast_Expr *Parser::parse_def(Ast_Expr *prev, Token op, Token_Types end_types)
 {
-    return scan({type});
+    if (!prev or prev->kind != Ast_Expr_Id)
+    {
+        throw errorf(op, "expected identifier for definition");
+    }
+
+    Id_Expr *id = &prev->id_expr;
+    if (id->entity != NULL)
+    {
+        throw errorf(op, "redefinition of identifier '{:s}'", id->name.expr);
+    }
+
+    Ast_Expr *ast_expr = ast.expr_push<Def_Expr>();
+    Def_Expr *def_expr = &ast_expr->def_expr;
+    Ast_Entity *type = NULL;
+    def_expr->op = op;
+    def_expr->name = id->name;
+
+    if (peek().type != Token_Assign)
+    {
+        Ast_Expr *type_expr = parse_expected_expr(NULL, end_types);
+        Id_Expr *type_id = &type_expr->id_expr;
+        if (type_expr->kind != Ast_Expr_Id or type_id->entity->kind & ~Ast_Entity_Type)
+        {
+            throw errorf(type_id->name, "does not name a type");
+        }
+        type = type_id->entity;
+    }
+    if (scan({Token_Assign}).ok)
+    {
+        def_expr->expr = parse_expr(end_types);
+    }
+
+    // Deduce type from expression type
+    if (!type)
+    {
+        if (!def_expr->expr)
+            throw errorf(op, "expected expression during definition");
+        type = type_system.type_expr(def_expr->expr);
+    }
+
+    // TODO! procedures
+    def_expr->entity = ast.entity_push<Var>(id->name.expr, type);
+    return ast_expr;
 }
 
-Token Parser::scan(std::initializer_list<Token_Type> types)
+bool Parser::eof() const
+{
+    return token_queue.empty() and scanner.eof();
+}
+
+Token Parser::peek()
+{
+    if (token_queue.size() > 0)
+        return token_queue.front();
+    return token_queue.emplace_back(scanner.tokenize());
+}
+
+Token Parser::scan(Token_Types types)
 {
     Token token;
 
@@ -267,37 +298,25 @@ Token Parser::scan(std::initializer_list<Token_Type> types)
     }
     token.ok |= types.size() == 0;
 
-    if (!token.ok)
+    if (!token.ok and token.type != Token_Eof)
     {
         token_queue.emplace_back(token);
     }
     return token;
 }
 
-void Parser::def_standard_types(Frame *frame)
+Error Parser::error_expected(Token token, Token_Types types) const
 {
-    auto def_atom = [&](std::string_view name, Atom_Desc desc, u32 size) {
-        Type *atom = new Type{Type::make_atom(desc, size)};
-        frame->defs.emplace(name, atom);
-    };
+    Stream stream;
 
-    def_atom("f16", Atom_Float, 2);
-    def_atom("f32", Atom_Float, 4);
-    def_atom("f64", Atom_Float, 8);
+    stream.print("expected ");
+    for (Token_Type type : types)
+    {
+        stream.print("'{:s}', ", token_typename(type));
+    }
+    stream.print("got '{:s}'", token_typename(token.type));
 
-    def_atom("s8", Atom_Signed, 1);
-    def_atom("s16", Atom_Signed, 2);
-    def_atom("s32", Atom_Signed, 4);
-    def_atom("s64", Atom_Signed, 8);
-
-    def_atom("u8", Atom_Raw, 1);
-    def_atom("u16", Atom_Raw, 2);
-    def_atom("u32", Atom_Raw, 4);
-    def_atom("u64", Atom_Raw, 8);
-
-    def_atom("char", Atom_Signed, 1);
-    def_atom("ssize", Atom_Signed, sizeof(usize));
-    def_atom("usize", Atom_Raw, sizeof(usize));
+    return bee_errorf("parser error", scanner.src, token, "{:s}", stream.str());
 }
 
 } // namespace bee

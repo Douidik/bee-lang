@@ -26,3 +26,8 @@ set_target_properties(
   LINKER_LANGUAGE CXX
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
 )
+
+target_compile_options(
+  bee PUBLIC
+  -Wno-conversion-null
+)

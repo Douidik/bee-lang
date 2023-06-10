@@ -1,3 +1,4 @@
+#include "ast_dump.hpp"
 #include "core.hpp"
 #include "parser.hpp"
 #include "regex/format.hpp"
@@ -21,13 +22,13 @@ s32 main(s32 argc, const char *argv[])
 
     std::string src{std::istreambuf_iterator{fstream}, {}};
     Scanner scanner{src, bee_syntax_map()};
-    Ast ast = Parser{scanner}.parse();
-    if (!ast.exprs.empty())
+    Parser parser{scanner};
+    parser.parse();
+
+    if (parser.ast.exprs.size > 0)
     {
-        Ast_Dump_Stream ast_dump_stream;
-        ast.exprs.back()->ast_dump(ast_dump_stream, 0);
-        fmt::print("{:s}\n", ast_dump_stream.str());
-        ast.free();
+        Ast_Dump ast_dump{parser.ast};
+        fmt::print("{:s}\n", ast_dump.str());
     }
 }
 

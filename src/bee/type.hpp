@@ -2,71 +2,93 @@
 #define BEE_TYPE_HPP
 
 #include "core.hpp"
-#include "entity.hpp"
 
 namespace bee
 {
 
-enum Type_Kind
-{
-    Type_Void,
-    Type_Atom,
-    Type_Struct,
-    Type_Enum,
-};
-
-struct Void
+struct Void_Type
 {
 };
 
 enum Atom_Desc : u32
 {
     Atom_Raw = 0,
-    Atom_Error = 1 << 0,
-    Atom_Signed = 1 << 1,
-    Atom_Float = 1 << 2,
+    Atom_Signed = 1 << 0,
+    Atom_Float = 1 << 1,
 };
 
-struct Atom
+struct Atom_Type
 {
     Atom_Desc desc;
     u32 size;
 };
 
-struct Struct
+struct Struct_Type
 {
 };
 
-struct Type : Ast_Entity
+struct Enum_Type
 {
-    Type_Kind kind;
-    union {
-        Void void_;
-        Atom atom_;
-        Struct struct_;
-    };
-
-    static Type make_void();
-    static Type make_atom(Atom_Desc desc, u32 size);
-    Ast_Dump_Stream &ast_dump(Ast_Dump_Stream &stream, s32 depth) const;
 };
 
-constexpr std::string_view atom_desc_name(Atom_Desc desc)
+constexpr std::string_view atom_desc_name(Atom_Desc atom_desc)
 {
-    switch (desc)
+    switch (atom_desc)
     {
     case Atom_Raw:
         return "Atom_Raw";
-    case Atom_Error:
-        return "Atom_Error";
     case Atom_Signed:
         return "Atom_Signed";
     case Atom_Float:
         return "Atom_Float";
-    default:
-        return "?";
     }
 }
+
+// enum Type_Kind
+// {
+//     Type_Void,
+//     Type_Atom,
+//     Type_Struct,
+//     Type_Enum,
+// };
+
+// struct Void
+// {
+// };
+
+// struct Struct
+// {
+// };
+
+// struct Type : Ast_Entity
+// {
+//     Type_Kind kind;
+//     union {
+//         Void void_;
+//         Atom atom_;
+//         Struct struct_;
+//     };
+
+//     static Type make_void();
+//     static Type make_atom(Atom_Desc desc, u32 size);
+// };
+
+// constexpr std::string_view atom_desc_name(Atom_Desc desc)
+// {
+//     switch (desc)
+//     {
+//     case Atom_Raw:
+//         return "Atom_Raw";
+//     case Atom_Error:
+//         return "Atom_Error";
+//     case Atom_Signed:
+//         return "Atom_Signed";
+//     case Atom_Float:
+//         return "Atom_Float";
+//     default:
+//         return "?";
+//     }
+// }
 
 // struct Type : Ast_Entity
 // {
