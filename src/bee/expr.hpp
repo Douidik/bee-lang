@@ -4,13 +4,14 @@
 #include "stream.hpp"
 #include "token.hpp"
 #include "type.hpp"
-#include "var.hpp"
 #include <string>
 #include <variant>
 
 namespace bee
 {
 struct Ast_Expr;
+struct Ast_Entity;
+struct Proc;
 
 enum Ast_Expr_Kind
 {
@@ -20,6 +21,7 @@ enum Ast_Expr_Kind
     Ast_Expr_Nested,
     Ast_Expr_Scope,
     Ast_Expr_If,
+    Ast_Expr_Return,
     Ast_Expr_Id,
     Ast_Expr_Def,
     Ast_Expr_Char,
@@ -27,8 +29,11 @@ enum Ast_Expr_Kind
     Ast_Expr_Int,
     Ast_Expr_Float,
     Ast_Expr_Proc,
+    Ast_Expr_Argument,
     Ast_Expr_Invoke,
 };
+
+using Compound_Expr = std::vector<Ast_Expr *>;
 
 enum Order_Expr : u32
 {
@@ -50,6 +55,7 @@ struct Unary_Expr
 struct Binary_Expr
 {
     Token op;
+    Ast_Entity *type;
     Ast_Expr *prev;
     Ast_Expr *post;
 };
@@ -61,12 +67,17 @@ struct Nested_Expr
 
 struct Scope_Expr
 {
-    Arena<Ast_Expr *, 1024> body;
+    Compound_Expr *compound;
 };
 
 struct If_Expr
 {
     Ast_Expr *cond;
+};
+
+struct Return_Expr
+{
+    Ast_Expr *expr;
 };
 
 struct Id_Expr
@@ -81,6 +92,7 @@ struct Def_Expr
     Ast_Expr *expr;
     Token op;
     Token name;
+    Ast_Expr *next;
 };
 
 struct Char_Expr
@@ -108,15 +120,20 @@ struct Float_Expr
 
 struct Proc_Expr
 {
-    Arena<Def_Expr *, 32> args;
-    Ast_Entity *type;
-    Scope_Expr *scope;
+    Ast_Entity *signature;
+    Ast_Expr *scope;
+};
+
+struct Argument_Expr
+{
+    Ast_Expr *expr;
+    Ast_Expr *next;
 };
 
 struct Invoke_Expr
 {
-    Arena<Def_Expr *, 32> args;
-    Var *proc;
+    Ast_Expr *proc;
+    Ast_Expr *args;
 };
 
 struct Ast_Expr
@@ -130,6 +147,7 @@ struct Ast_Expr
         Nested_Expr nested_expr;
         Scope_Expr scope_expr;
         If_Expr if_expr;
+        Return_Expr return_expr;
         Id_Expr id_expr;
         Def_Expr def_expr;
         Char_Expr char_expr;
@@ -137,6 +155,7 @@ struct Ast_Expr
         Int_Expr int_expr;
         Float_Expr float_expr;
         Proc_Expr proc_expr;
+        Argument_Expr argument_expr;
         Invoke_Expr invoke_expr;
     };
 
@@ -146,6 +165,7 @@ struct Ast_Expr
     Ast_Expr(Nested_Expr nested_expr) : kind{Ast_Expr_Nested}, nested_expr{nested_expr} {}
     Ast_Expr(Scope_Expr scope_expr) : kind{Ast_Expr_Scope}, scope_expr{scope_expr} {}
     Ast_Expr(If_Expr if_expr) : kind{Ast_Expr_If}, if_expr{if_expr} {}
+    Ast_Expr(Return_Expr return_expr) : kind{Ast_Expr_Return}, return_expr{return_expr} {}
     Ast_Expr(Id_Expr id_expr) : kind{Ast_Expr_Id}, id_expr{id_expr} {}
     Ast_Expr(Def_Expr def_expr) : kind{Ast_Expr_Def}, def_expr{def_expr} {}
     Ast_Expr(Char_Expr char_expr) : kind{Ast_Expr_Char}, char_expr{char_expr} {}
@@ -153,6 +173,7 @@ struct Ast_Expr
     Ast_Expr(Int_Expr int_expr) : kind{Ast_Expr_Int}, int_expr{int_expr} {}
     Ast_Expr(Float_Expr float_expr) : kind{Ast_Expr_Float}, float_expr{float_expr} {}
     Ast_Expr(Proc_Expr proc_expr) : kind{Ast_Expr_Proc}, proc_expr{proc_expr} {}
+    Ast_Expr(Argument_Expr argument_expr) : kind{Ast_Expr_Argument}, argument_expr{argument_expr} {}
     Ast_Expr(Invoke_Expr invoke_expr) : kind{Ast_Expr_Invoke}, invoke_expr{invoke_expr} {}
 };
 
@@ -172,6 +193,8 @@ constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
         return "Ast_Expr_Scope";
     case Ast_Expr_If:
         return "Ast_Expr_If";
+    case Ast_Expr_Return:
+        return "Ast_Expr_Return";
     case Ast_Expr_Id:
         return "Ast_Expr_Id";
     case Ast_Expr_Def:
@@ -188,6 +211,8 @@ constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
         return "Ast_Expr_Proc";
     case Ast_Expr_Invoke:
         return "Ast_Expr_Invoke";
+    case Ast_Expr_Argument:
+        return "Ast_Expr_Argument";
     default:
         return "?";
     }

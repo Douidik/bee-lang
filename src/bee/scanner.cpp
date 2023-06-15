@@ -13,7 +13,7 @@ Scanner::Scanner(std::string_view src, Syntax_Map map) : src{src}, next{src}, ma
 
 Token Scanner::tokenize()
 {
-    Token token = {.type = Token_None};
+    Token token = {};
     do
     {
         if (next.empty())
@@ -31,9 +31,9 @@ Token Scanner::tokenize()
                 break;
             }
         }
-    } while (token.type == Token_Blank);
+    } while (token.type & (Token_Blank | Token_Comment));
 
-    if (token.type == Token_None)
+    if (!token.type)
     {
         throw errorf(token, "unrecognized token");
     }

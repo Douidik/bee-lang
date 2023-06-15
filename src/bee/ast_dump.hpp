@@ -7,22 +7,24 @@ namespace bee
 {
 struct Ast_Expr;
 struct Ast_Entity;
-    struct Ast;
-    
+struct Ast_Frame;
+struct Ast;
+
 struct Ast_Dump : Standard_Stream
 {
     Ast_Dump(Ast &ast);
-    
-    void dump_expr(Ast_Expr *ast_expr, s32 depth);
-    void dump_entity(Ast_Entity *ast_entity, s32 depth);
+
+    void stack_dump(Ast_Frame *frame, s32 depth);
+    void expr_dump(Ast_Expr *ast_expr, s32 depth);
+    void entity_dump(Ast_Entity *ast_entity, s32 depth);
 
     Ast_Dump &print(s32 depth, std::string_view fmt, auto... args)
     {
-        standard_print("{:\t>{}}- ", "", depth);
-        standard_print(fmt, args...);
+        std_print("{:\t>{}}- ", "", depth);
+        std_print(fmt, args...);
         return *this;
     }
 };
-    
+
 } // namespace bee
 #endif

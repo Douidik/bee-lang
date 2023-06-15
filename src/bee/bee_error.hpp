@@ -9,16 +9,21 @@
 namespace bee
 {
 
+constexpr u32 number_size(auto n)
+{
+    return floor(log10(n)) + 1;
+}
+
 Error bee_errorf(std::string_view name, std::string_view src, Token token, std::string_view fmt, auto... args)
 {
     std::string_view expr = token.expr;
 
-    auto line = std::count(src.begin(), expr.begin(), '\n');
+    u32 line = std::count(src.begin(), expr.begin(), '\n');
     auto rbegin = std::find(expr.rend(), src.rend(), '\n');
     auto begin = std::max(rbegin.base(), src.begin());
     auto end = std::find(expr.end(), src.end(), '\n');
-    auto cursor = expr.begin() - begin + 1;
     auto desc = fmt::format(fmt::runtime(fmt), args...);
+    u32 cursor = expr.begin() - begin + number_size(line);
 
     return Error{
         name,

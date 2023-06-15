@@ -10,6 +10,11 @@ Ast_Entity *Ast_Frame::find(std::string_view name)
     return owner != NULL ? owner->find(name) : NULL;
 }
 
+Compound_Expr *Ast::compound_push(const Compound_Expr &&compound)
+{
+    return &compounds.push(std::move(compound));
+}
+
 Ast_Frame *Ast::stack_push()
 {
     return frame = &stack.push(Ast_Frame{.owner = frame});
@@ -17,7 +22,8 @@ Ast_Frame *Ast::stack_push()
 
 Ast_Frame *Ast::stack_pop()
 {
-    return frame = stack.pop();
+    stack.pop();
+    return (frame = frame->owner);
 }
 
 } // namespace bee

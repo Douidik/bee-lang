@@ -2,24 +2,35 @@
 #include "ast.hpp"
 #include "entity.hpp"
 #include "expr.hpp"
+#include "var.hpp"
 
 namespace bee
 {
 
-// Ast_Dump_Stream &Type::ast_dump(Ast_Dump_Stream &stream, s32 depth) const
-// {
-//     switch (kind)
-//     {
-//     case Type_Void:
-//         return stream.print(depth, "Type_Void");
+std::string Signature_Type::make_name() const
+{
+    Standard_Stream stream = {};
 
-//     case Type_Atom:
-//         return stream.print(depth, "Type_Atom (desc: {:s}, size {:d})", atom_desc_name(atom_.desc), atom_.size);
+    stream.std_print("(");
+    for (Ast_Expr *expr = params; expr != NULL; expr = expr->def_expr.next)
+    {
+        Def_Expr *def = &expr->def_expr;
+        Var *var = &expr->def_expr.entity->var;
+        stream.std_print("{:s}: {:s}", def->name.expr, var->type->name);
 
-//     case Type_Struct:
-//     case Type_Enum:
-//         return stream.print(depth, "<unimplemented>");
-//     }
-// }
+        if (def->next != NULL)
+        {
+            stream.std_print(", ");
+        }
+    }
+    stream.std_print(")");
+
+    if (type->kind != Ast_Entity_Void)
+    {
+        stream.std_print(" -> {:s}", type->name);
+    }
+
+    return std::string{stream.str()};
+}
 
 } // namespace bee

@@ -1,13 +1,24 @@
 #ifndef BEE_TYPE_HPP
 #define BEE_TYPE_HPP
 
+#include "arena.hpp"
 #include "core.hpp"
 
 namespace bee
 {
+struct Ast_Expr;
+struct Ast_Entity;
 
 struct Void_Type
 {
+};
+
+struct Signature_Type
+{
+    Ast_Expr *params;
+    Ast_Entity *type;
+
+    std::string make_name() const;
 };
 
 enum Atom_Desc : u32
@@ -41,6 +52,8 @@ constexpr std::string_view atom_desc_name(Atom_Desc atom_desc)
         return "Atom_Signed";
     case Atom_Float:
         return "Atom_Float";
+    default:
+	return "?";
     }
 }
 

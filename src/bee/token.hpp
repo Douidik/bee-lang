@@ -8,7 +8,7 @@
 namespace bee
 {
 
-enum Token_Type : u32;
+enum Token_Type : u64;
 using Syntax_Map = std::span<const std::pair<Token_Type, Regex>>;
 
 struct Token
@@ -18,77 +18,81 @@ struct Token
     bool ok;
 };
 
-enum Token_Type : u32
+constexpr u64 token_type_n(u64 n)
 {
-    Token_None,
+    return u64(1) << n;
+}
 
-    Token_NewLine,
-    Token_Empty,
-    Token_Blank,
-    Token_Eof,
-    Token_Comment,
+enum Token_Type : u64
+{
+    Token_None = 0,
 
-    Token_Struct,
-    Token_Enum,
-    Token_Union,
-    Token_Break,
-    Token_Case,
-    Token_Continue,
-    Token_Else,
-    Token_For,
-    Token_If,
-    Token_Return,
-    Token_Switch,
-    Token_While,
-    Token_And,
-    Token_Or,
+    Token_NewLine = token_type_n(0),
+    Token_Blank = token_type_n(1),
+    Token_Comment = token_type_n(2),
+    Token_Eof = token_type_n(3),
 
-    Token_Id,
+    Token_Struct = token_type_n(4),
+    Token_Enum = token_type_n(5),
+    Token_Union = token_type_n(6),
+    Token_Break = token_type_n(7),
+    Token_Case = token_type_n(8),
+    Token_Continue = token_type_n(9),
+    Token_Else = token_type_n(10),
+    Token_For = token_type_n(11),
+    Token_If = token_type_n(12),
+    Token_Return = token_type_n(13),
+    Token_Switch = token_type_n(14),
+    Token_While = token_type_n(15),
+    Token_And = token_type_n(16),
+    Token_Or = token_type_n(17),
 
-    Token_Float,
-    Token_Int_Dec,
-    Token_Int_Bin,
-    Token_Int_Hex,
-    Token_Str,
-    Token_Raw_Str,
-    Token_Char,
+    Token_Id = token_type_n(18),
 
-    Token_Increment,
-    Token_Decrement,
-    Token_Parent_Begin,
-    Token_Parent_End,
-    Token_Scope_Begin,
-    Token_Scope_End,
-    Token_Crochet_Begin,
-    Token_Crochet_End,
-    Token_Declare,
-    Token_Define,
-    Token_Assign,
-    Token_Arrow,
-    Token_Not,
-    Token_Add,
-    Token_Sub,
-    Token_Mul,
-    Token_Div,
-    Token_Mod,
-    Token_Bin_Not,
-    Token_Bin_And,
-    Token_Bin_Or,
-    Token_Bin_Xor,
-    Token_Shift_L,
-    Token_Shift_R,
-    Token_Eq,
-    Token_Not_Eq,
-    Token_Less,
-    Token_Greater,
-    Token_Less_Eq,
-    Token_Greater_Eq,
-    Token_Ref,
-    Token_Dot,
-    Token_Comma,
-    Token_Semicolon,
+    Token_Float = token_type_n(19),
+    Token_Int_Dec = token_type_n(20),
+    Token_Int_Bin = token_type_n(21),
+    Token_Int_Hex = token_type_n(22),
+    Token_Str = token_type_n(23),
+    Token_Raw_Str = token_type_n(24),
+    Token_Char = token_type_n(25),
 
-    Token_Count,
+    Token_Increment = token_type_n(26),
+    Token_Decrement = token_type_n(27),
+    Token_Nested_Begin = token_type_n(28),
+    Token_Nested_End = token_type_n(29),
+    Token_Scope_Begin = token_type_n(30),
+    Token_Scope_End = token_type_n(31),
+    Token_Crochet_Begin = token_type_n(32),
+    Token_Crochet_End = token_type_n(33),
+    Token_Declare = token_type_n(34),
+    Token_Define = token_type_n(35),
+    Token_Assign = token_type_n(36),
+    Token_Arrow = token_type_n(37),
+    Token_Not = token_type_n(38),
+    Token_Add = token_type_n(39),
+    Token_Sub = token_type_n(40),
+    Token_Mul = token_type_n(41),
+    Token_Div = token_type_n(42),
+    Token_Mod = token_type_n(43),
+    Token_Bin_Not = token_type_n(44),
+    Token_Bin_And = token_type_n(45),
+    Token_Bin_Or = token_type_n(46),
+    Token_Bin_Xor = token_type_n(47),
+    Token_Shift_L = token_type_n(48),
+    Token_Shift_R = token_type_n(49),
+    Token_Eq = token_type_n(50),
+    Token_Not_Eq = token_type_n(51),
+    Token_Less = token_type_n(52),
+    Token_Greater = token_type_n(53),
+    Token_Less_Eq = token_type_n(54),
+    Token_Greater_Eq = token_type_n(55),
+    Token_Ref = token_type_n(56),
+    Token_Dot = token_type_n(57),
+    Token_Comma = token_type_n(58),
+    Token_Semicolon = token_type_n(59),
+
+    Token_Type_Max = token_type_n(60),
 };
 
 static Syntax_Map bee_syntax_map()
@@ -96,8 +100,8 @@ static Syntax_Map bee_syntax_map()
     static const std::pair<Token_Type, Regex> map[] = {
         {Token_Blank, "_+"},
         {Token_Comment, "'//' {{{'\\'^}|^} ~ /'\n'}? /'\n'"},
-	{Token_NewLine, "'\n'"},
-	
+        {Token_NewLine, "'\n'"},
+
         // Every token has the same regex pattern "'<name>' /!a"
         {Token_Enum, "'enum' /!a"},
         {Token_Union, "'union' /!a"},
@@ -116,8 +120,8 @@ static Syntax_Map bee_syntax_map()
 
         {Token_Scope_Begin, "'{'"},
         {Token_Scope_End, "'}'"},
-        {Token_Parent_Begin, "'('"},
-        {Token_Parent_End, "')'"},
+        {Token_Nested_Begin, "'('"},
+        {Token_Nested_End, "')'"},
         {Token_Crochet_Begin, "']'"},
         {Token_Crochet_End, "'['"},
 
@@ -178,14 +182,10 @@ constexpr std::string_view token_typename(Token_Type type)
         return "<None>";
     case Token_NewLine:
         return "<NewLine>";
-    case Token_Empty:
-        return "<Empty>";
     case Token_Blank:
         return "<Blank>";
     case Token_Eof:
         return "<Eof>";
-    case Token_Comment:
-        return "<Comment>";
     case Token_Struct:
         return "struct";
     case Token_Enum:
@@ -234,9 +234,9 @@ constexpr std::string_view token_typename(Token_Type type)
         return "++";
     case Token_Decrement:
         return "--";
-    case Token_Parent_Begin:
+    case Token_Nested_Begin:
         return "(";
-    case Token_Parent_End:
+    case Token_Nested_End:
         return ")";
     case Token_Scope_Begin:
         return "{";

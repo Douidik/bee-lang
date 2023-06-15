@@ -21,6 +21,7 @@ s32 main(s32 argc, const char *argv[])
     }
 
     std::string src{std::istreambuf_iterator{fstream}, {}};
+    src.push_back('\n');
     Scanner scanner{src, bee_syntax_map()};
     Parser parser{scanner};
     parser.parse();

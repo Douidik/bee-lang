@@ -1,0 +1,19 @@
+add :: (a: s32, b: s32) -> s32
+{
+	return a + b
+}
+
+// random_number :: () -> s32
+// {
+// 	return 46
+// }
+
+// weird_number :: () -> s32
+// {
+// 	return 99
+// }
+
+main :: () -> s32
+{
+	return add(3, 1)
+}

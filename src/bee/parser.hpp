@@ -6,11 +6,12 @@
 #include "scanner.hpp"
 #include "type_system.hpp"
 #include <deque>
+#include <unordered_set>
+
+#include "ast_dump.hpp"
 
 namespace bee
 {
-
-using Token_Types = std::initializer_list<Token_Type>;
 
 struct Parser
 {
@@ -22,19 +23,27 @@ struct Parser
     Parser(Scanner &scanner);
     void parse();
 
-    std::vector<Ast_Expr *> parse_compound(Token_Types sep_types, Token_Types end_types);
-    Ast_Expr *parse_expr(Token_Types end_types);
-    Ast_Expr *parse_expected_expr(Ast_Expr *prev, Token_Types end_types);
-    Ast_Expr *parse_def(Ast_Expr *prev, Token op, Token_Types end_types);
+    Compound_Expr parse_compound(u64 sep_types, u64 end_types);
+    Ast_Expr *parse_expr(u64 end_types);
+    Ast_Expr *parse_one_expr(Ast_Expr *prev, u64 end_types);
+
+    Ast_Expr *parse_scope(u64 sep_types, u64 end_types);
+    Ast_Entity *parse_type(Token token, u64 end_types);
+
+    Ast_Expr *parse_def(Ast_Expr *prev, Token op, u64 end_types);
+    Ast_Expr *parse_proc(Ast_Expr *params, u64 end_types);
+    Ast_Expr *parse_invoke(Ast_Expr *proc, Token token);
+    Ast_Expr *parse_argument(Signature_Type *signature, Ast_Expr *param, Token token);
 
     bool eof() const;
-    Token peek();
-    Token scan(Token_Types types);
+    Token peek(u64 types);
+    Token scan(u64 types);
+    
+    Error error_expected(Token token, u64 types);
 
-    Error error_expected(Token token, Token_Types types) const;
-
-    Error errorf(Token token, std::string_view fmt, auto... args) const
+    Error errorf(Token token, std::string_view fmt, auto... args)
     {
+        fmt::print("{}", Ast_Dump{ast}.str());
         return bee_errorf("parser error", scanner.src, token, fmt, args...);
     }
 };

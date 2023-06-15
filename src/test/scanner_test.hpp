@@ -165,8 +165,11 @@ static testing::AssertionResult assert_tokens(std::string_view _src, std::vector
 
         if (result.expr != expected.expr || result.type != expected.type)
         {
+            std::string_view result_typename = token_typename(Token_Type{result.type});
+            std::string_view expected_typename = token_typename(Token_Type{result.type});
+
             Error error = bee_errorf("scanner test error", src, result, "'{}' :: '{}' != '{}' :: '{}'", result.expr,
-                                     token_typename(result.type), expected.expr, token_typename(expected.type));
+                                     result_typename, expected.expr, expected_typename);
 
             return testing::AssertionFailure() << error.what();
         }
@@ -195,7 +198,7 @@ main :: () -> s32
 )",
 
                 {"// Comment is simple with bee", Token_Comment}, {"main", Token_Id}, {"::", Token_Declare},
-                {"(", Token_Parent_Begin}, {")", Token_Parent_End}, {"->", Token_Arrow}, {"s32", Token_Id},
+                {"(", Token_Nested_Begin}, {")", Token_Nested_End}, {"->", Token_Arrow}, {"s32", Token_Id},
                 {"// Just put two dashes and end with a newline", Token_Comment}, {"{", Token_Scope_Begin},
                 {"}", Token_Scope_End});
 }
@@ -227,8 +230,8 @@ TEST(Lexer, Operator)
     EXPECT_SCAN("->", {"->", Token_Arrow});
     EXPECT_SCAN("{", {"{", Token_Scope_Begin});
     EXPECT_SCAN("}", {"}", Token_Scope_End});
-    EXPECT_SCAN("(", {"(", Token_Parent_Begin});
-    EXPECT_SCAN(")", {")", Token_Parent_End});
+    EXPECT_SCAN("(", {"(", Token_Nested_Begin});
+    EXPECT_SCAN(")", {")", Token_Nested_End});
     EXPECT_SCAN("]", {"]", Token_Crochet_Begin});
     EXPECT_SCAN("[", {"[", Token_Crochet_End});
     EXPECT_SCAN(";", {";", Token_Semicolon});
@@ -354,7 +357,7 @@ main :: () -> s32
 )";
 
     EXPECT_SCAN(source, {"// Bee minimal source code", Token_Comment}, {"main", Token_Id}, {"::", Token_Declare},
-                {"(", Token_Parent_Begin}, {")", Token_Parent_End}, {"->", Token_Arrow}, {"s32", Token_Id},
+                {"(", Token_Nested_Begin}, {")", Token_Nested_End}, {"->", Token_Arrow}, {"s32", Token_Id},
                 {"{", Token_Scope_Begin}, {"return", Token_Return}, {"0", Token_Int_Dec}, {"}", Token_Scope_End});
 }
 
@@ -375,15 +378,15 @@ fib :: (n: s64) -> s64
 }
 )";
 
-    EXPECT_SCAN(source, {"fib", Token_Id}, {"::", Token_Declare}, {"(", Token_Parent_Begin}, {"n", Token_Id},
-                {":", Token_Define}, {"s64", Token_Id}, {")", Token_Parent_End}, {"->", Token_Arrow}, {"s64", Token_Id},
+    EXPECT_SCAN(source, {"fib", Token_Id}, {"::", Token_Declare}, {"(", Token_Nested_Begin}, {"n", Token_Id},
+                {":", Token_Define}, {"s64", Token_Id}, {")", Token_Nested_End}, {"->", Token_Arrow}, {"s64", Token_Id},
                 {"{", Token_Scope_Begin}, {"if", Token_If}, {"n", Token_Id}, {"==", Token_Eq}, {"0", Token_Int_Dec},
                 {"or", Token_Or}, {"n", Token_Id}, {"==", Token_Eq}, {"1", Token_Int_Dec}, {"{", Token_Scope_Begin},
                 {"return", Token_Return}, {"n", Token_Id}, {"}", Token_Scope_End}, {"else", Token_Else},
-                {"{", Token_Scope_Begin}, {"return", Token_Return}, {"fib", Token_Id}, {"(", Token_Parent_Begin},
-                {"n", Token_Id}, {"-", Token_Sub}, {"1", Token_Int_Dec}, {")", Token_Parent_End}, {"+", Token_Add},
-                {"fib", Token_Id}, {"(", Token_Parent_Begin}, {"n", Token_Id}, {"-", Token_Sub}, {"2", Token_Int_Dec},
-                {")", Token_Parent_End}, {"}", Token_Scope_End}, {"}", Token_Scope_End});
+                {"{", Token_Scope_Begin}, {"return", Token_Return}, {"fib", Token_Id}, {"(", Token_Nested_Begin},
+                {"n", Token_Id}, {"-", Token_Sub}, {"1", Token_Int_Dec}, {")", Token_Nested_End}, {"+", Token_Add},
+                {"fib", Token_Id}, {"(", Token_Nested_Begin}, {"n", Token_Id}, {"-", Token_Sub}, {"2", Token_Int_Dec},
+                {")", Token_Nested_End}, {"}", Token_Scope_End}, {"}", Token_Scope_End});
 }
 
 } // namespace bee

@@ -34,10 +34,13 @@ struct Type_System
     Ast_Entity *usize_type;
     Ast_Entity *void_type;
 
-    void def_atom_types(Ast *ast);
     u32 type_cast(Ast_Entity *from, Ast_Entity *into);
+    u32 type_size(Ast_Entity *ast_entity);
     Ast_Entity *type_expr(Ast_Expr *ast_expr);
     Ast_Entity *type_entity(Ast_Entity *ast_entity);
+
+    void type_std_def(Ast *ast);
+    Ast_Entity *compose_atom(u32 desc, u32 size);
 
     Error errorf(std::string_view fmt, auto... args) const
     {

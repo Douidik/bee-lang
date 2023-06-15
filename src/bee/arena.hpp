@@ -40,6 +40,11 @@ struct Arena
         return back();
     }
 
+    T *at(usize n)
+    {
+        return n < size ? &buffer[n] : NULL;
+    }
+
     T *begin()
     {
         return &buffer[0];
@@ -81,6 +86,8 @@ struct Dyn_Arena
             chunk_push() = Arena<T, N>{begin + i, begin + i + N};
         }
     }
+
+    Dyn_Arena(auto container) : Dyn_Arena(container.begin(), container.end()) {}
 
     T *at(usize n)
     {
