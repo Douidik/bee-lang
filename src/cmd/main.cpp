@@ -26,11 +26,8 @@ s32 main(s32 argc, const char *argv[])
     Parser parser{scanner};
     parser.parse();
 
-    if (parser.ast.exprs.size > 0)
-    {
-        Ast_Dump ast_dump{parser.ast};
-        fmt::print("{:s}\n", ast_dump.str());
-    }
+    Ast_Dump ast_dump{parser.ast};
+    fmt::print("{:s}\n", ast_dump.str());
 }
 
 // s32 main(s32 argc, const char *argv[])

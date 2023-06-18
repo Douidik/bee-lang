@@ -1,12 +1,14 @@
 #ifndef BEE_VAR_HPP
 #define BEE_VAR_HPP
 
+#include "entity.hpp"
+
 namespace bee
 {
 
-struct Var
+struct Var : Ast_Entity_Impl<Ast_Entity_Var>
 {
-    struct Ast_Entity *type;
+    Ast_Entity *type;
 };
 
 } // namespace bee

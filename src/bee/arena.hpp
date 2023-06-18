@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <deque>
 #include <fmt/format.h>
+#include <unordered_map>
+#include <vector>
 
 namespace bee
 {
@@ -13,23 +15,23 @@ namespace bee
 template <typename T, usize N>
 struct Arena
 {
-    T buffer[N];
+    T data[N];
     usize size;
 
-    Arena(T zero = T{}) : size{0}, buffer{zero} {}
+    Arena(T zero = T{}) : size{0}, data{zero} {}
 
     Arena(auto begin, auto end) : size{(usize)std::distance(begin, end)}
     {
         if (size > N)
             throw error("cannot create arena from range: capacity exceeded");
-        std::move(begin, end, buffer);
+        std::move(begin, end, data);
     }
 
     T &push(const T &&x)
     {
         if (size + 1 > N)
             throw error("cannot push(): capacity exceeded");
-        return (buffer[size++] = x);
+        return (data[size++] = x);
     }
 
     T *pop()
@@ -42,27 +44,27 @@ struct Arena
 
     T *at(usize n)
     {
-        return n < size ? &buffer[n] : NULL;
+        return n < size ? &data[n] : NULL;
     }
 
     T *begin()
     {
-        return &buffer[0];
+        return &data[0];
     }
 
     T *end()
     {
-        return &buffer[size];
+        return &data[size];
     }
 
     T *front()
     {
-        return size != 0 ? &buffer[0] : NULL;
+        return size != 0 ? &data[0] : NULL;
     }
 
     T *back()
     {
-        return size != 0 ? &buffer[size - 1] : NULL;
+        return size != 0 ? &data[size - 1] : NULL;
     }
 
     Error error(std::string_view desc) const
@@ -101,7 +103,8 @@ struct Dyn_Arena
 
     T &push(const T &&x)
     {
-        if (++size > chunks.size() * N)
+        size++;
+        while (size < chunks.size() * N)
             chunk_push();
         return chunk_back().push(std::move(x));
     }
@@ -145,7 +148,32 @@ struct Dyn_Arena
 
     Error error(std::string_view desc) const
     {
-        return Error{"arena error", std::string(desc)};
+        return Error{"dyn_arena error", std::string(desc)};
+    }
+};
+
+// NOTE! this implementation of mem_arena does not deconstruct the allocated objects !
+
+template <usize N>
+struct Mem_Arena
+{
+    std::deque<Arena<u8, N>> chunks;
+
+    template <typename T>
+    T *push(const T &&x)
+    {
+        static_assert(sizeof(T) <= N, "cannot push item that cannot fit in a chunk");
+
+        if (chunks.empty() or chunks.back().size + sizeof(T) > N)
+        {
+            chunks.emplace_back();
+            return push(std::move(x));
+        }
+
+        Arena<u8, N> &chunk = chunks.back();
+        u8 *dst = &chunk.data[chunk.size];
+        chunk.size += sizeof(T);
+        return (T *)std::memcpy(dst, (const void *)&x, sizeof(T));
     }
 };
 

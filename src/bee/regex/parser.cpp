@@ -84,7 +84,7 @@ Node *Parser::parse_new_token()
         throw errorf("unmatched sequence brace, missing <{{> token");
 
     case ']':
-        throw errorf("unmatched sequence brace, missing <[> token");
+        throw errorf("unmatched scope brace, missing <[> token");
 
     default:
         throw errorf("unknown token in regex, none of [_aonQq^'`{{}}!|?*+~]");
@@ -153,10 +153,10 @@ Node *Parser::parse_set(std::string_view set)
 
 Node *Parser::parse_scope()
 {
-    static const Regex range_format = "'[' ^ '-' ^ ']'";
+    static const Regex scope_format = "'[' ^ '-' ^ ']'";
 
-    if (!range_format.match(token, src.end()))
-        throw errorf("range does not the match the format '{:s}'", range_format.src);
+    if (!scope_format.match(token, src.end()))
+        throw errorf("scope does not match the format '{:s}'", scope_format.src);
 
     char a = token[1];
     char b = token[3];

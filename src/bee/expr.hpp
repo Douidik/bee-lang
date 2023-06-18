@@ -11,7 +11,7 @@ namespace bee
 {
 struct Ast_Expr;
 struct Ast_Entity;
-struct Proc;
+struct Var;
 
 enum Ast_Expr_Kind
 {
@@ -28,7 +28,7 @@ enum Ast_Expr_Kind
     Ast_Expr_Str,
     Ast_Expr_Int,
     Ast_Expr_Float,
-    Ast_Expr_Proc,
+    Ast_Expr_Function,
     Ast_Expr_Argument,
     Ast_Expr_Invoke,
 };
@@ -41,18 +41,35 @@ enum Order_Expr : u32
     Post_Expr,
 };
 
-struct None_Expr
+struct Ast_Expr
+{
+    virtual ~Ast_Expr() = default;
+    virtual Ast_Expr_Kind kind() const = 0;
+};
+
+template <Ast_Expr_Kind K>
+struct Ast_Expr_Impl : Ast_Expr
+{
+    constexpr static Ast_Expr_Kind Kind = K;
+
+    Ast_Expr_Kind kind() const
+    {
+        return K;
+    }
+};
+
+struct None_Expr : Ast_Expr_Impl<Ast_Expr_None>
 {
 };
 
-struct Unary_Expr
+struct Unary_Expr : Ast_Expr_Impl<Ast_Expr_Unary>
 {
     Token op;
     Order_Expr order;
     Ast_Expr *expr;
 };
 
-struct Binary_Expr
+struct Binary_Expr : Ast_Expr_Impl<Ast_Expr_Binary>
 {
     Token op;
     Ast_Entity *type;
@@ -60,121 +77,80 @@ struct Binary_Expr
     Ast_Expr *post;
 };
 
-struct Nested_Expr
+struct Nested_Expr : Ast_Expr_Impl<Ast_Expr_Nested>
 {
     Ast_Expr *expr;
 };
 
-struct Scope_Expr
+struct Scope_Expr : Ast_Expr_Impl<Ast_Expr_Scope>
 {
     Compound_Expr *compound;
 };
 
-struct If_Expr
+struct If_Expr : Ast_Expr_Impl<Ast_Expr_If>
 {
     Ast_Expr *cond;
 };
 
-struct Return_Expr
+struct Return_Expr : Ast_Expr_Impl<Ast_Expr_Return>
 {
     Ast_Expr *expr;
 };
 
-struct Id_Expr
+struct Id_Expr : Ast_Expr_Impl<Ast_Expr_Id>
 {
     Token name;
     Ast_Entity *entity;
 };
 
-struct Def_Expr
+struct Def_Expr : Ast_Expr_Impl<Ast_Expr_Def>
 {
-    Ast_Entity *entity;
+    Var *var;
     Ast_Expr *expr;
     Token op;
     Token name;
-    Ast_Expr *next;
+    Def_Expr *next;
 };
 
-struct Char_Expr
+struct Char_Expr : Ast_Expr_Impl<Ast_Expr_Char>
 {
     char data;
 };
 
-struct Str_Expr
+struct Str_Expr : Ast_Expr_Impl<Ast_Expr_Str>
 {
     // TODO! define const char literal as entity
     std::string_view data;
 };
 
-struct Int_Expr
+struct Int_Expr : Ast_Expr_Impl<Ast_Expr_Int>
 {
     u64 data;
     u32 size;
 };
 
-struct Float_Expr
+struct Float_Expr : Ast_Expr_Impl<Ast_Expr_Float>
 {
     f64 data;
     u32 size;
 };
 
-struct Proc_Expr
+struct Function_Expr : Ast_Expr_Impl<Ast_Expr_Function>
 {
-    Ast_Entity *signature;
-    Ast_Expr *scope;
+    Signature *signature;
+    Scope_Expr *scope;
 };
 
-struct Argument_Expr
+struct Argument_Expr : Ast_Expr_Impl<Ast_Expr_Argument>
 {
     Ast_Expr *expr;
-    Ast_Expr *next;
+    Argument_Expr *next;
 };
 
-struct Invoke_Expr
+struct Invoke_Expr : Ast_Expr_Impl<Ast_Expr_Invoke>
 {
-    Ast_Expr *proc;
-    Ast_Expr *args;
-};
-
-struct Ast_Expr
-{
-    Ast_Expr_Kind kind;
-
-    union {
-        None_Expr none_expr;
-        Unary_Expr unary_expr;
-        Binary_Expr binary_expr;
-        Nested_Expr nested_expr;
-        Scope_Expr scope_expr;
-        If_Expr if_expr;
-        Return_Expr return_expr;
-        Id_Expr id_expr;
-        Def_Expr def_expr;
-        Char_Expr char_expr;
-        Str_Expr str_expr;
-        Int_Expr int_expr;
-        Float_Expr float_expr;
-        Proc_Expr proc_expr;
-        Argument_Expr argument_expr;
-        Invoke_Expr invoke_expr;
-    };
-
-    Ast_Expr() : kind{Ast_Expr_None}, none_expr{} {}
-    Ast_Expr(Unary_Expr unary_expr) : kind{Ast_Expr_Unary}, unary_expr{unary_expr} {}
-    Ast_Expr(Binary_Expr binary_expr) : kind{Ast_Expr_Binary}, binary_expr{binary_expr} {}
-    Ast_Expr(Nested_Expr nested_expr) : kind{Ast_Expr_Nested}, nested_expr{nested_expr} {}
-    Ast_Expr(Scope_Expr scope_expr) : kind{Ast_Expr_Scope}, scope_expr{scope_expr} {}
-    Ast_Expr(If_Expr if_expr) : kind{Ast_Expr_If}, if_expr{if_expr} {}
-    Ast_Expr(Return_Expr return_expr) : kind{Ast_Expr_Return}, return_expr{return_expr} {}
-    Ast_Expr(Id_Expr id_expr) : kind{Ast_Expr_Id}, id_expr{id_expr} {}
-    Ast_Expr(Def_Expr def_expr) : kind{Ast_Expr_Def}, def_expr{def_expr} {}
-    Ast_Expr(Char_Expr char_expr) : kind{Ast_Expr_Char}, char_expr{char_expr} {}
-    Ast_Expr(Str_Expr str_expr) : kind{Ast_Expr_Str}, str_expr{str_expr} {}
-    Ast_Expr(Int_Expr int_expr) : kind{Ast_Expr_Int}, int_expr{int_expr} {}
-    Ast_Expr(Float_Expr float_expr) : kind{Ast_Expr_Float}, float_expr{float_expr} {}
-    Ast_Expr(Proc_Expr proc_expr) : kind{Ast_Expr_Proc}, proc_expr{proc_expr} {}
-    Ast_Expr(Argument_Expr argument_expr) : kind{Ast_Expr_Argument}, argument_expr{argument_expr} {}
-    Ast_Expr(Invoke_Expr invoke_expr) : kind{Ast_Expr_Invoke}, invoke_expr{invoke_expr} {}
+    Ast_Expr *function;
+    Argument_Expr *args;
 };
 
 constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
@@ -207,8 +183,8 @@ constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
         return "Ast_Expr_Int";
     case Ast_Expr_Float:
         return "Ast_Expr_Float";
-    case Ast_Expr_Proc:
-        return "Ast_Expr_Proc";
+    case Ast_Expr_Function:
+        return "Ast_Expr_Function";
     case Ast_Expr_Invoke:
         return "Ast_Expr_Invoke";
     case Ast_Expr_Argument:

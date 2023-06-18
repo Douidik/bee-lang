@@ -7,16 +7,14 @@
 namespace bee
 {
 
-std::string Signature_Type::make_name() const
+std::string Signature::make_name() const
 {
     Standard_Stream stream = {};
 
     stream.std_print("(");
-    for (Ast_Expr *expr = params; expr != NULL; expr = expr->def_expr.next)
+    for (Def_Expr *def = params; def != NULL; def = def->next)
     {
-        Def_Expr *def = &expr->def_expr;
-        Var *var = &expr->def_expr.entity->var;
-        stream.std_print("{:s}: {:s}", def->name.expr, var->type->name);
+        stream.std_print("{:s}: {:s}", def->name.expr, def->var->type->name);
 
         if (def->next != NULL)
         {
@@ -25,7 +23,7 @@ std::string Signature_Type::make_name() const
     }
     stream.std_print(")");
 
-    if (type->kind != Ast_Entity_Void)
+    if (type->kind() != Ast_Entity_Void)
     {
         stream.std_print(" -> {:s}", type->name);
     }

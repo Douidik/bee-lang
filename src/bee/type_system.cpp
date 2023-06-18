@@ -1,20 +1,22 @@
 #include "type_system.hpp"
+#include "type.hpp"
+#include "var.hpp"
 
 namespace bee
 {
 
-u32 Type_System::type_cast(Ast_Entity *from, Ast_Entity *into)
+u32 Type_System::cast_type(Ast_Entity *from, Ast_Entity *into)
 {
     // TODO! Enum type_cast()
 
-    if (from->kind & Ast_Entity_Var)
-        return type_cast(from->var.type, into);
-    if (into->kind & Ast_Entity_Var)
-        return type_cast(from, into->var.type);
-    if (from->kind != into->kind)
+    if (from->kind() & Ast_Entity_Var)
+        return cast_type(((Var *)from)->type, into);
+    if (into->kind() & Ast_Entity_Var)
+        return cast_type(from, ((Var *)into)->type);
+    if (from->kind() != into->kind())
         return Type_Cast_Error;
 
-    switch (from->kind)
+    switch (from->kind())
     {
     case Ast_Entity_Signature:
         // TODO! Each of the arguments and return types are the Type_Cast_Same
@@ -25,12 +27,14 @@ u32 Type_System::type_cast(Ast_Entity *from, Ast_Entity *into)
 
     case Ast_Entity_Atom: {
         u32 cast = 0;
+        Atom_Type *from_atom = (Atom_Type *)from;
+        Atom_Type *into_atom = (Atom_Type *)into;
 
-        if (from->atom_type.desc != into->atom_type.desc)
+        if (from_atom->desc != into_atom->desc)
             cast |= Type_Cast_Transmuted;
-        if (from->atom_type.size > into->atom_type.size)
+        if (from_atom->size > into_atom->size)
             cast |= Type_Cast_Inferred;
-        if (from->atom_type.size < into->atom_type.size)
+        if (from_atom->size < into_atom->size)
             cast |= Type_Cast_Narrowed;
 
         return cast != 0 ? cast : Type_Cast_Same;
@@ -50,39 +54,39 @@ u32 Type_System::type_cast(Ast_Entity *from, Ast_Entity *into)
     }
 }
 
-u32 Type_System::type_size(Ast_Entity *ast_entity)
+u32 Type_System::size_type(Ast_Entity *ast_entity)
 {
-    switch (ast_entity->kind)
+    switch (ast_entity->kind())
     {
     case Ast_Entity_Var:
-        return type_size(ast_entity->var.type);
+        return size_type(((Var *)ast_entity)->type);
 
     case Ast_Entity_Atom:
-        return ast_entity->atom_type.size;
+        return ((Atom_Type *)ast_entity)->size;
 
     default:
         return 0;
     }
 }
 
-Ast_Entity *Type_System::type_expr(Ast_Expr *ast_expr)
+Ast_Entity *Type_System::expr_type(Ast_Expr *ast_expr)
 {
-    switch (ast_expr->kind)
+    switch (ast_expr->kind())
     {
     case Ast_Expr_Unary:
-        return type_expr(ast_expr->unary_expr.expr);
+        return expr_type(((Unary_Expr *)ast_expr)->expr);
 
     case Ast_Expr_Binary:
-        return ast_expr->binary_expr.type;
+        return ((Binary_Expr *)ast_expr)->type;
 
     case Ast_Expr_Nested:
-        return type_expr(ast_expr->nested_expr.expr);
+        return expr_type(((Nested_Expr *)ast_expr)->expr);
 
     case Ast_Expr_Id:
-        return type_entity(ast_expr->id_expr.entity);
+        return entity_type(((Id_Expr *)ast_expr)->entity);
 
     case Ast_Expr_Def:
-        return type_entity(ast_expr->def_expr.entity);
+        return entity_type(((Def_Expr *)ast_expr)->var);
 
     case Ast_Expr_Char:
         return char_type;
@@ -90,32 +94,30 @@ Ast_Entity *Type_System::type_expr(Ast_Expr *ast_expr)
     case Ast_Expr_Str:
         throw errorf("TODO! Ast_Expr_Str type deduction must implement pointers/arrays");
 
-    case Ast_Expr_Proc:
-        return type_entity(ast_expr->proc_expr.signature);
+    case Ast_Expr_Function:
+        return entity_type(((Function_Expr *)ast_expr)->signature);
 
     case Ast_Expr_Invoke: {
-        // Invoke_Expr *invoke = &ast_expr->invoke_expr;
-        // Proc_Expr *proc = &invoke->proc->proc_expr;
-        // Signature_Type *signature = &proc->signature->signature_type;
-        Ast_Entity *signature = type_expr(ast_expr->invoke_expr.proc);
-        return signature->signature_type.type;
+        Invoke_Expr *invoke = (Invoke_Expr *)ast_expr;
+        Signature *signature = (Signature *)expr_type(invoke->function);
+        return signature->type;
     }
 
     case Ast_Expr_Int: {
-        u32 size = ast_expr->int_expr.size;
-        Ast_Entity *type = compose_atom(Atom_Signed, size);
+        Int_Expr *expr = (Int_Expr *)ast_expr;
+        Ast_Entity *type = compose_atom(Atom_Signed, expr->size);
 
         if (!type)
-            throw errorf("cannot create integer type of size '{:d}'", size);
+            throw errorf("cannot create integer type of size '{:d}'", expr->size);
         return type;
     }
 
     case Ast_Expr_Float: {
-        u32 size = ast_expr->int_expr.size;
-        Ast_Entity *type = compose_atom(Atom_Float, size);
+        Float_Expr *expr = (Float_Expr *)ast_expr;
+        Ast_Entity *type = compose_atom(Atom_Float, expr->size);
 
         if (!type)
-            throw errorf("cannot create float type of size '{:d}'", size);
+            throw errorf("cannot create float type of size '{:d}'", expr->size);
         return type;
     }
 
@@ -124,25 +126,28 @@ Ast_Entity *Type_System::type_expr(Ast_Expr *ast_expr)
     }
 }
 
-Ast_Entity *Type_System::type_entity(Ast_Entity *ast_entity)
+Ast_Entity *Type_System::entity_type(Ast_Entity *ast_entity)
 {
-    if (ast_entity->kind & Ast_Entity_Type)
+    if (ast_entity->kind() & Ast_Entity_Type)
     {
         return ast_entity;
     }
-
-    if (ast_entity->kind & Ast_Entity_Var)
+    if (ast_entity->kind() & Ast_Entity_Var)
     {
-        return ast_entity->var.type;
+        return ((Var *)ast_entity)->type;
     }
 
     return void_type;
 }
 
-void Type_System::type_std_def(Ast *ast)
+void Type_System::std_types(Ast *ast)
 {
     auto atom = [ast](std::string_view name, Atom_Desc desc, u32 size) -> Ast_Entity * {
-        return ast->frame->push<Atom_Type>(name, Atom_Type{desc, size});
+        Atom_Type *atom = new Atom_Type;
+        atom->name = name;
+        atom->desc = desc;
+        atom->size = size;
+        return ast->frame->push(atom);
     };
 
     f16_type = atom("f16", Atom_Float, 2);
@@ -159,7 +164,10 @@ void Type_System::type_std_def(Ast *ast)
     char_type = atom("char", Atom_Signed, 1);
     ssize_type = atom("ssize", Atom_Signed, sizeof(usize));
     usize_type = atom("usize", Atom_Raw, sizeof(usize));
-    void_type = ast->frame->push<Void_Type>("void");
+
+    void_type = new Void_Type;
+    void_type->name = "void";
+    ast->frame->push(void_type);
 }
 
 Ast_Entity *Type_System::compose_atom(u32 desc, u32 size)

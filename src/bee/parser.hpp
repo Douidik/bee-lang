@@ -27,18 +27,18 @@ struct Parser
     Ast_Expr *parse_expr(u64 end_types);
     Ast_Expr *parse_one_expr(Ast_Expr *prev, u64 end_types);
 
-    Ast_Expr *parse_scope(u64 sep_types, u64 end_types);
+    Scope_Expr *parse_scope(u64 sep_types, u64 end_types);
     Ast_Entity *parse_type(Token token, u64 end_types);
 
-    Ast_Expr *parse_def(Ast_Expr *prev, Token op, u64 end_types);
-    Ast_Expr *parse_proc(Ast_Expr *params, u64 end_types);
-    Ast_Expr *parse_invoke(Ast_Expr *proc, Token token);
-    Ast_Expr *parse_argument(Signature_Type *signature, Ast_Expr *param, Token token);
+    Def_Expr *parse_def(Id_Expr *id, Token op, u64 end_types);
+    Function_Expr *parse_function(Def_Expr *params, u64 end_types);
+    Invoke_Expr *parse_invoke(Ast_Expr *function, Token token);
+    Argument_Expr *parse_argument(Signature *signature, Def_Expr *param, Token token);
 
     bool eof() const;
     Token peek(u64 types);
     Token scan(u64 types);
-    
+
     Error error_expected(Token token, u64 types);
 
     Error errorf(Token token, std::string_view fmt, auto... args)

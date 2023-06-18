@@ -1,8 +1,9 @@
 #ifndef BEE_ENTITY_HPP
 #define BEE_ENTITY_HPP
 
-#include "type.hpp"
-#include "var.hpp"
+#include "core.hpp"
+#include "error.hpp"
+#include <string>
 
 namespace bee
 {
@@ -22,34 +23,18 @@ enum Ast_Entity_Kind : u32
 struct Ast_Entity
 {
     std::string name;
-    Ast_Entity_Kind kind;
-    union {
-        Var var;
-        Signature_Type signature_type;
-        Void_Type void_type;
-        Atom_Type atom_type;
-        Struct_Type struct_type;
-        Enum_Type enum_type;
-    };
+    virtual ~Ast_Entity() = default;
+    virtual Ast_Entity_Kind kind() const = 0;
+};
 
-    Ast_Entity() : kind{Ast_Entity_None} {}
-    Ast_Entity(std::string_view name, Var var) : name{name}, kind{Ast_Entity_Var}, var{var} {}
-    Ast_Entity(std::string_view name, Void_Type void_type) : name{name}, kind{Ast_Entity_Void}, void_type{void_type} {}
-    Ast_Entity(std::string_view name, Atom_Type atom_type) : name{name}, kind{Ast_Entity_Atom}, atom_type{atom_type} {}
-    Ast_Entity(std::string_view name, Enum_Type enum_type) : name{name}, kind{Ast_Entity_Enum}, enum_type{enum_type} {}
+template <Ast_Entity_Kind K>
+struct Ast_Entity_Impl : Ast_Entity
+{
+    constexpr static Ast_Entity_Kind Kind = K;
 
-    Ast_Entity(std::string_view name, Signature_Type signature_type) :
-        name{name},
-        kind{Ast_Entity_Signature},
-        signature_type{signature_type}
+    Ast_Entity_Kind kind() const
     {
-    }
-
-    Ast_Entity(std::string_view name, Struct_Type struct_type) :
-        name{name},
-        kind{Ast_Entity_Atom},
-        struct_type{struct_type}
-    {
+        return K;
     }
 };
 
@@ -75,6 +60,41 @@ constexpr std::string_view ast_entity_kind_name(Ast_Entity_Kind kind)
         return "?";
     }
 }
+
+// struct Ast_Entity
+// {
+//     std::string name;
+//     Ast_Entity_Kind kind;
+//     union {
+//         Var var;
+//         Signature_Type signature_type;
+//         Void_Type void_type;
+//         Atom_Type atom_type;
+//         Struct_Type struct_type;
+//         Enum_Type enum_type;
+//     };
+
+//     Ast_Entity() : kind{Ast_Entity_None} {}
+//     Ast_Entity(std::string_view name, Var var) : name{name}, kind{Ast_Entity_Var}, var{var} {}
+//     Ast_Entity(std::string_view name, Void_Type void_type) : name{name}, kind{Ast_Entity_Void}, void_type{void_type}
+//     {} Ast_Entity(std::string_view name, Atom_Type atom_type) : name{name}, kind{Ast_Entity_Atom},
+//     atom_type{atom_type} {} Ast_Entity(std::string_view name, Enum_Type enum_type) : name{name},
+//     kind{Ast_Entity_Enum}, enum_type{enum_type} {}
+
+//     Ast_Entity(std::string_view name, Signature_Type signature_type) :
+//         name{name},
+//         kind{Ast_Entity_Signature},
+//         signature_type{signature_type}
+//     {
+//     }
+
+//     Ast_Entity(std::string_view name, Struct_Type struct_type) :
+//         name{name},
+//         kind{Ast_Entity_Atom},
+//         struct_type{struct_type}
+//     {
+//     }
+// };
 
 } // namespace bee
 
