@@ -22,6 +22,7 @@ struct Standard_Stream
 
     Standard_Stream &std_print(std::string_view fmt, auto... args)
     {
+	// fmt::print(fmt::runtime(fmt), args...);
         fmt::format_to(std::back_inserter(buffer), fmt::runtime(fmt), args...);
         return *this;
     }

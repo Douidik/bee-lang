@@ -11,7 +11,9 @@ namespace bee
 
 constexpr u32 number_size(auto n)
 {
-    return floor(log10(n)) + 1;
+    if (n > 9)
+	return number_size(n / 10) + 1;
+    return 1;
 }
 
 Error bee_errorf(std::string_view name, std::string_view src, Token token, std::string_view fmt, auto... args)
@@ -29,7 +31,7 @@ Error bee_errorf(std::string_view name, std::string_view src, Token token, std::
         name,
         fmt::format(R"(with {{
   {} | {}
-     {:>{}}{:^>{}} {}
+      {:>{}}{:^>{}} {}
 }})",
                     line, std::string_view{begin, end}, "", cursor, "^", expr.size(), desc),
     };

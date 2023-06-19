@@ -10,27 +10,36 @@
 namespace bee
 {
 struct Ast_Expr;
+struct Ast_Frame;
 struct Ast_Entity;
 struct Var;
+struct Function;
 
-enum Ast_Expr_Kind
+enum Ast_Expr_Kind : u32
 {
-    Ast_Expr_None,
-    Ast_Expr_Unary,
-    Ast_Expr_Binary,
-    Ast_Expr_Nested,
-    Ast_Expr_Scope,
-    Ast_Expr_If,
-    Ast_Expr_Return,
-    Ast_Expr_Id,
-    Ast_Expr_Def,
-    Ast_Expr_Char,
-    Ast_Expr_Str,
-    Ast_Expr_Int,
-    Ast_Expr_Float,
-    Ast_Expr_Function,
-    Ast_Expr_Argument,
-    Ast_Expr_Invoke,
+    Ast_Expr_None = bitset(0),
+    Ast_Expr_Unary = bitset(1),
+    Ast_Expr_Binary = bitset(2),
+    Ast_Expr_Nested = bitset(3),
+    Ast_Expr_Scope = bitset(4),
+    Ast_Expr_Return = bitset(5),
+    Ast_Expr_Id = bitset(6),
+    Ast_Expr_Var = bitset(7),
+    Ast_Expr_Char = bitset(8),
+    Ast_Expr_Str = bitset(9),
+    Ast_Expr_Int = bitset(10),
+    Ast_Expr_Float = bitset(11),
+    Ast_Expr_Signature = bitset(12),
+    Ast_Expr_Function = bitset(13),
+    Ast_Expr_Argument = bitset(14),
+    Ast_Expr_Invoke = bitset(15),
+    Ast_Expr_Condition = bitset(16),
+    Ast_Expr_If = bitset(17),
+    Ast_Expr_For = bitset(18),
+    Ast_Expr_For_Range = bitset(19),
+    Ast_Expr_For_While = bitset(20),
+
+    Ast_Expr_Lit = Ast_Expr_Char | Ast_Expr_Str | Ast_Expr_Int | Ast_Expr_Float,
 };
 
 using Compound_Expr = std::vector<Ast_Expr *>;
@@ -85,11 +94,7 @@ struct Nested_Expr : Ast_Expr_Impl<Ast_Expr_Nested>
 struct Scope_Expr : Ast_Expr_Impl<Ast_Expr_Scope>
 {
     Compound_Expr *compound;
-};
-
-struct If_Expr : Ast_Expr_Impl<Ast_Expr_If>
-{
-    Ast_Expr *cond;
+    Ast_Frame *frame;
 };
 
 struct Return_Expr : Ast_Expr_Impl<Ast_Expr_Return>
@@ -103,13 +108,13 @@ struct Id_Expr : Ast_Expr_Impl<Ast_Expr_Id>
     Ast_Entity *entity;
 };
 
-struct Def_Expr : Ast_Expr_Impl<Ast_Expr_Def>
+struct Var_Expr : Ast_Expr_Impl<Ast_Expr_Var>
 {
     Var *var;
     Ast_Expr *expr;
     Token op;
     Token name;
-    Def_Expr *next;
+    Var_Expr *next;
 };
 
 struct Char_Expr : Ast_Expr_Impl<Ast_Expr_Char>
@@ -135,9 +140,18 @@ struct Float_Expr : Ast_Expr_Impl<Ast_Expr_Float>
     u32 size;
 };
 
+struct Signature_Expr : Ast_Expr_Impl<Ast_Expr_Signature>
+{
+    Var_Expr *params;
+    Ast_Entity *type;
+    Ast_Frame *frame;
+
+    std::string name() const;
+};
+
 struct Function_Expr : Ast_Expr_Impl<Ast_Expr_Function>
 {
-    Signature *signature;
+    Function *function;
     Scope_Expr *scope;
 };
 
@@ -149,8 +163,39 @@ struct Argument_Expr : Ast_Expr_Impl<Ast_Expr_Argument>
 
 struct Invoke_Expr : Ast_Expr_Impl<Ast_Expr_Invoke>
 {
-    Ast_Expr *function;
+    Function *function;
     Argument_Expr *args;
+};
+
+struct If_Expr : Ast_Expr_Impl<Ast_Expr_If>
+{
+    Ast_Expr *condition;
+    Scope_Expr *scope_if;
+    Scope_Expr *scope_else;
+    Ast_Frame *frame;
+};
+
+// TODO!
+// struct For_Range_Expr : Ast_Expr_Impl<Ast_Expr_For_Range>
+// {
+//     Ast_Expr *condition;
+//     Scope_Expr *scope;
+// };
+
+struct For_Expr : Ast_Expr_Impl<Ast_Expr_For>
+{
+    Ast_Expr *start;
+    Ast_Expr *condition;
+    Ast_Expr *iteration;
+    Scope_Expr *scope;
+    Ast_Frame *frame;
+};
+
+struct For_While_Expr : Ast_Expr_Impl<Ast_Expr_For_While>
+{
+    Ast_Frame *frame;
+    Ast_Expr *condition;
+    Scope_Expr *scope;
 };
 
 constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
@@ -173,8 +218,8 @@ constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
         return "Ast_Expr_Return";
     case Ast_Expr_Id:
         return "Ast_Expr_Id";
-    case Ast_Expr_Def:
-        return "Ast_Expr_Def";
+    case Ast_Expr_Var:
+        return "Ast_Expr_Var";
     case Ast_Expr_Char:
         return "Ast_Expr_Char";
     case Ast_Expr_Str:
@@ -183,12 +228,16 @@ constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
         return "Ast_Expr_Int";
     case Ast_Expr_Float:
         return "Ast_Expr_Float";
+    case Ast_Expr_Signature:
+        return "Ast_Expr_Signature";
     case Ast_Expr_Function:
         return "Ast_Expr_Function";
     case Ast_Expr_Invoke:
         return "Ast_Expr_Invoke";
     case Ast_Expr_Argument:
         return "Ast_Expr_Argument";
+    case Ast_Expr_Condition:
+        return "Ast_Expr_Condition";
     default:
         return "?";
     }

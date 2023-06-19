@@ -2,6 +2,7 @@
 #define BEE_ENTITY_HPP
 
 #include "core.hpp"
+#include "bitset.hpp"
 #include "error.hpp"
 #include <string>
 
@@ -11,13 +12,13 @@ namespace bee
 enum Ast_Entity_Kind : u32
 {
     Ast_Entity_None = 0,
-    Ast_Entity_Var = 1 << 0,
-    Ast_Entity_Signature = 1 << 1,
-    Ast_Entity_Void = 1 << 2,
-    Ast_Entity_Atom = 1 << 3,
-    Ast_Entity_Struct = 1 << 4,
-    Ast_Entity_Enum = 1 << 5,
-    Ast_Entity_Type = Ast_Entity_Void | Ast_Entity_Signature | Ast_Entity_Atom | Ast_Entity_Struct | Ast_Entity_Enum,
+    Ast_Entity_Var = bitset(0),
+    Ast_Entity_Function = bitset(1),
+    Ast_Entity_Void = bitset(2),
+    Ast_Entity_Atom = bitset(3),
+    Ast_Entity_Struct = bitset(4),
+    Ast_Entity_Enum = bitset(5),
+    Ast_Entity_Type = Ast_Entity_Void | Ast_Entity_Function | Ast_Entity_Atom | Ast_Entity_Struct | Ast_Entity_Enum,
 };
 
 struct Ast_Entity
@@ -46,8 +47,8 @@ constexpr std::string_view ast_entity_kind_name(Ast_Entity_Kind kind)
         return "None";
     case Ast_Entity_Var:
         return "Var";
-    case Ast_Entity_Signature:
-        return "Signature";
+    case Ast_Entity_Function:
+        return "Function";
     case Ast_Entity_Void:
         return "Void";
     case Ast_Entity_Atom:

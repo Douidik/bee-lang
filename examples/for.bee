@@ -1,0 +1,26 @@
+pow :: (x: s32, n: s32) -> s32
+{
+	for ; n >= 0; n-- {
+	    x = x * x
+	}
+	return x
+}
+
+div :: (x: s32) -> s32
+{
+	return x / 2
+}
+
+main :: () -> s32
+{
+	number := 1
+	for i := 0; i < 10; i++ {
+	    number = pow(number, i)
+	}
+
+	for number > 32 {
+	    number = div(number)
+	}
+
+	return number
+}

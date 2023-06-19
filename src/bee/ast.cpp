@@ -9,6 +9,12 @@ Ast_Frame::~Ast_Frame()
         delete entity;
 }
 
+Ast::~Ast()
+{
+    for (Ast_Frame *frame : frames)
+        delete frame;
+}
+
 Ast_Entity *Ast_Frame::find(std::string_view name)
 {
     if (auto match = defs.find(name); match != defs.end())
@@ -16,25 +22,24 @@ Ast_Entity *Ast_Frame::find(std::string_view name)
     return owner != NULL ? owner->find(name) : NULL;
 }
 
-Ast_Entity *Ast_Frame::push(Ast_Entity *entity)
+Compound_Expr *Ast::compound_push(Compound_Expr compound)
 {
-    return defs[entity->name] = entity;
+    return &compounds.emplace_back(compound);
 }
 
-Compound_Expr *Ast::compound_push(const Compound_Expr &&compound)
+Ast_Frame *Ast::push_frame(Ast_Frame *f)
 {
-    return &compounds.push(std::move(compound));
+    f->owner = frame;
+    frame = f;
+    frames.insert(f);
+    return f;
 }
-
-Ast_Frame *Ast::stack_push()
+    
+Ast_Frame *Ast::pop_frame()
 {
-    return frame = &stack.push(Ast_Frame{.owner = frame});
-}
-
-Ast_Frame *Ast::stack_pop()
-{
-    stack.pop();
-    return (frame = frame->owner);
+    Ast_Frame *pop = frame;
+    frame = frame->owner;
+    return pop;
 }
 
 } // namespace bee

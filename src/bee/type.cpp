@@ -7,28 +7,26 @@
 namespace bee
 {
 
-std::string Signature::make_name() const
+f64 Atom_Type::max() const
 {
-    Standard_Stream stream = {};
-
-    stream.std_print("(");
-    for (Def_Expr *def = params; def != NULL; def = def->next)
+    if (desc & Atom_Float)
     {
-        stream.std_print("{:s}: {:s}", def->name.expr, def->var->type->name);
-
-        if (def->next != NULL)
+        switch (size)
         {
-            stream.std_print(", ");
+        case 2:
+            return (f64)4'293'918'720.0;
+        case 4:
+            return (f64)3.402'823'466e+38;
+        case 8:
+            return (f64)1.797'693'134'862'315'7e+308;
+        default:
+            return (f64)0;
         }
     }
-    stream.std_print(")");
-
-    if (type->kind() != Ast_Entity_Void)
+    else
     {
-        stream.std_print(" -> {:s}", type->name);
+        return pow(2, size) - 1;
     }
-
-    return std::string{stream.str()};
 }
 
 } // namespace bee

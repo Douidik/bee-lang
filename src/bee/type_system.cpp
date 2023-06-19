@@ -1,4 +1,5 @@
 #include "type_system.hpp"
+#include "function.hpp"
 #include "type.hpp"
 #include "var.hpp"
 
@@ -18,9 +19,28 @@ u32 Type_System::cast_type(Ast_Entity *from, Ast_Entity *into)
 
     switch (from->kind())
     {
-    case Ast_Entity_Signature:
-        // TODO! Each of the arguments and return types are the Type_Cast_Same
+    case Ast_Entity_Function: {
+        Function *from_function = (Function *)from;
+        Function *into_function = (Function *)into;
+
+        if (cast_type(from_function->type, into_function->type) != Type_Cast_Same)
+            return Type_Cast_Error;
+
+        for (Var_Expr *from_def = from_function->params, *into_def = into_function->params;
+             from_def != NULL or into_def != NULL; from_def = from_def->next, into_def = into_def->next)
+        {
+            if (from_def != NULL ^ into_def != NULL)
+                return Type_Cast_Error;
+
+            Ast_Entity *from_type = expr_type(from_def->expr);
+            Ast_Entity *into_type = expr_type(into_def->expr);
+
+            if (cast_type(from_type, into_type) != Type_Cast_Same)
+                return Type_Cast_Error;
+        }
+
         return Type_Cast_Same;
+    }
 
     case Ast_Entity_Void:
         return Type_Cast_Same;
@@ -30,11 +50,12 @@ u32 Type_System::cast_type(Ast_Entity *from, Ast_Entity *into)
         Atom_Type *from_atom = (Atom_Type *)from;
         Atom_Type *into_atom = (Atom_Type *)into;
 
-        if (from_atom->desc != into_atom->desc)
+        // if ((from_atom->desc & Atom_Float) != (into_atom->desc & Atom_Float))
+        if ((from_atom->desc ^ into_atom->desc) & Atom_Float)
             cast |= Type_Cast_Transmuted;
-        if (from_atom->size > into_atom->size)
+        if (from_atom->max() > into_atom->max())
             cast |= Type_Cast_Inferred;
-        if (from_atom->size < into_atom->size)
+        if (from_atom->max() < into_atom->max())
             cast |= Type_Cast_Narrowed;
 
         return cast != 0 ? cast : Type_Cast_Same;
@@ -85,8 +106,8 @@ Ast_Entity *Type_System::expr_type(Ast_Expr *ast_expr)
     case Ast_Expr_Id:
         return entity_type(((Id_Expr *)ast_expr)->entity);
 
-    case Ast_Expr_Def:
-        return entity_type(((Def_Expr *)ast_expr)->var);
+    case Ast_Expr_Var:
+        return entity_type(((Var_Expr *)ast_expr)->var);
 
     case Ast_Expr_Char:
         return char_type;
@@ -95,12 +116,11 @@ Ast_Entity *Type_System::expr_type(Ast_Expr *ast_expr)
         throw errorf("TODO! Ast_Expr_Str type deduction must implement pointers/arrays");
 
     case Ast_Expr_Function:
-        return entity_type(((Function_Expr *)ast_expr)->signature);
+        return entity_type(((Function_Expr *)ast_expr)->function);
 
     case Ast_Expr_Invoke: {
         Invoke_Expr *invoke = (Invoke_Expr *)ast_expr;
-        Signature *signature = (Signature *)expr_type(invoke->function);
-        return signature->type;
+        return invoke->function->type;
     }
 
     case Ast_Expr_Int: {
@@ -128,6 +148,11 @@ Ast_Entity *Type_System::expr_type(Ast_Expr *ast_expr)
 
 Ast_Entity *Type_System::entity_type(Ast_Entity *ast_entity)
 {
+
+    if (!ast_entity)
+    {
+        return NULL;
+    }
     if (ast_entity->kind() & Ast_Entity_Type)
     {
         return ast_entity;
@@ -162,6 +187,7 @@ void Type_System::std_types(Ast *ast)
     u32_type = atom("u32", Atom_Raw, 4);
     u64_type = atom("u64", Atom_Raw, 8);
     char_type = atom("char", Atom_Signed, 1);
+    bool_type = atom("bool", Atom_Raw, 1);
     ssize_type = atom("ssize", Atom_Signed, sizeof(usize));
     usize_type = atom("usize", Atom_Raw, sizeof(usize));
 
@@ -185,7 +211,7 @@ Ast_Entity *Type_System::compose_atom(u32 desc, u32 size)
         }
     }
 
-    if (desc & Atom_Signed)
+    else if (desc & Atom_Signed)
     {
         switch (size)
         {
@@ -200,7 +226,7 @@ Ast_Entity *Type_System::compose_atom(u32 desc, u32 size)
         }
     }
 
-    if (desc & Atom_Raw)
+    else
     {
         switch (size)
         {

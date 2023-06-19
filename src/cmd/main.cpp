@@ -28,6 +28,7 @@ s32 main(s32 argc, const char *argv[])
 
     Ast_Dump ast_dump{parser.ast};
     fmt::print("{:s}\n", ast_dump.str());
+    fmt::print("{:s}\n", src);
 }
 
 // s32 main(s32 argc, const char *argv[])

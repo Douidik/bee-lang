@@ -2,6 +2,7 @@
 #include "ast.hpp"
 #include "escape_sequence.hpp"
 #include "expr.hpp"
+#include "function.hpp"
 #include "type.hpp"
 #include "var.hpp"
 
@@ -73,10 +74,26 @@ void Ast_Dump::expr_dump(Ast_Expr *ast_expr, s32 depth)
     case Ast_Expr_Scope: {
         Scope_Expr *scope = (Scope_Expr *)ast_expr;
         print(depth, "Scope_Expr\n");
-        for (Ast_Expr *expr : *scope->compound)
+        if (scope->compound != NULL and !scope->compound->empty())
         {
-            expr_dump(expr, depth + 1);
+            for (Ast_Expr *expr : *scope->compound)
+            {
+                expr_dump(expr, depth + 1);
+            }
         }
+        else
+        {
+            print(depth + 1, "(Empty scope)\n");
+        }
+
+        break;
+    }
+
+    case Ast_Expr_If: {
+        auto &[cond, scope] = *(If_Expr *)ast_expr;
+        print(depth, "If_Expr\n");
+        expr_dump(cond, depth + 1);
+        expr_dump(scope, depth + 1);
         break;
     }
 
@@ -94,8 +111,8 @@ void Ast_Dump::expr_dump(Ast_Expr *ast_expr, s32 depth)
         break;
     }
 
-    case Ast_Expr_Def: {
-        auto &[entity, expr, op, name, next] = *(Def_Expr *)ast_expr;
+    case Ast_Expr_Var: {
+        auto &[entity, expr, op, name, next] = *(Var_Expr *)ast_expr;
         print(depth, "Def_Expr (op: '{:s}', name: '{:s}')\n", op.expr, name.expr);
         expr_dump(expr, depth + 1);
         entity_dump(entity, depth + 1);
@@ -128,11 +145,19 @@ void Ast_Dump::expr_dump(Ast_Expr *ast_expr, s32 depth)
         break;
     }
 
+    case Ast_Expr_Signature: {
+        Signature_Expr *signature = (Signature_Expr *)ast_expr;
+        print(depth, "Signature_Expr\n");
+        expr_dump(signature->params, depth + 1);
+        entity_dump(signature->type, depth + 1);
+        break;
+    }
+
     case Ast_Expr_Function: {
-        auto &[signature, expr] = *(Function_Expr *)ast_expr;
+        Function_Expr *function = (Function_Expr *)ast_expr;
         print(depth, "Function_Expr\n");
-        entity_dump(signature, depth + 1);
-        expr_dump(expr, depth + 1);
+        entity_dump(function->function, depth + 1);
+        expr_dump(function->scope, depth + 1);
         break;
     }
 
@@ -147,7 +172,7 @@ void Ast_Dump::expr_dump(Ast_Expr *ast_expr, s32 depth)
     case Ast_Expr_Invoke: {
         auto &[function, args] = *(Invoke_Expr *)ast_expr;
         print(depth, "Invoke_Expr\n");
-        expr_dump(function, depth + 1);
+        entity_dump(function, depth + 1);
         expr_dump(args, depth + 1);
         break;
     }
@@ -176,11 +201,9 @@ void Ast_Dump::entity_dump(Ast_Entity *ast_entity, s32 depth)
         break;
     }
 
-    case Ast_Entity_Signature: {
-        Signature *signature = (Signature *)ast_entity;
-        print(depth, "Signature_Type {:s}\n", ast_entity->name);
-        if (signature->params != NULL)
-            expr_dump(signature->params, depth + 1);
+    case Ast_Entity_Function: {
+        Function *function = (Function *)ast_entity;
+        print(depth, "Function '{:s}'\n", function->repr());
         break;
     }
 

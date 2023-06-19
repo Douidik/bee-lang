@@ -1,6 +1,7 @@
 #ifndef BEE_TOKEN_HPP
 #define BEE_TOKEN_HPP
 
+#include "bitset.hpp"
 #include "core.hpp"
 #include "regex/regex.hpp"
 #include <span>
@@ -18,81 +19,81 @@ struct Token
     bool ok;
 };
 
-constexpr u64 token_type_n(u64 n)
-{
-    return u64(1) << n;
-}
-
 enum Token_Type : u64
 {
     Token_None = 0,
 
-    Token_NewLine = token_type_n(0),
-    Token_Blank = token_type_n(1),
-    Token_Comment = token_type_n(2),
-    Token_Eof = token_type_n(3),
+    Token_NewLine = bitset(0),
+    Token_Blank = bitset(1),
+    Token_Comment = bitset(2),
+    Token_Eof = bitset(3),
 
-    Token_Struct = token_type_n(4),
-    Token_Enum = token_type_n(5),
-    Token_Union = token_type_n(6),
-    Token_Break = token_type_n(7),
-    Token_Case = token_type_n(8),
-    Token_Continue = token_type_n(9),
-    Token_Else = token_type_n(10),
-    Token_For = token_type_n(11),
-    Token_If = token_type_n(12),
-    Token_Return = token_type_n(13),
-    Token_Switch = token_type_n(14),
-    Token_While = token_type_n(15),
-    Token_And = token_type_n(16),
-    Token_Or = token_type_n(17),
+    Token_Struct = bitset(4),
+    Token_Enum = bitset(5),
+    Token_Union = bitset(6),
+    Token_Break = bitset(7),
+    Token_Case = bitset(8),
+    Token_Continue = bitset(9),
+    Token_Else = bitset(10),
+    Token_For = bitset(11),
+    Token_If = bitset(12),
+    Token_Return = bitset(13),
+    Token_Switch = bitset(14),
+    Token_In = bitset(15),
+    Token_And = bitset(16),
+    Token_Or = bitset(17),
 
-    Token_Id = token_type_n(18),
+    Token_Id = bitset(18),
 
-    Token_Float = token_type_n(19),
-    Token_Int_Dec = token_type_n(20),
-    Token_Int_Bin = token_type_n(21),
-    Token_Int_Hex = token_type_n(22),
-    Token_Str = token_type_n(23),
-    Token_Raw_Str = token_type_n(24),
-    Token_Char = token_type_n(25),
+    Token_Float = bitset(19),
+    Token_Int_Dec = bitset(20),
+    Token_Int_Bin = bitset(21),
+    Token_Int_Hex = bitset(22),
+    Token_Str = bitset(23),
+    Token_Raw_Str = bitset(24),
+    Token_Char = bitset(25),
 
-    Token_Increment = token_type_n(26),
-    Token_Decrement = token_type_n(27),
-    Token_Nested_Begin = token_type_n(28),
-    Token_Nested_End = token_type_n(29),
-    Token_Scope_Begin = token_type_n(30),
-    Token_Scope_End = token_type_n(31),
-    Token_Crochet_Begin = token_type_n(32),
-    Token_Crochet_End = token_type_n(33),
-    Token_Declare = token_type_n(34),
-    Token_Define = token_type_n(35),
-    Token_Assign = token_type_n(36),
-    Token_Arrow = token_type_n(37),
-    Token_Not = token_type_n(38),
-    Token_Add = token_type_n(39),
-    Token_Sub = token_type_n(40),
-    Token_Mul = token_type_n(41),
-    Token_Div = token_type_n(42),
-    Token_Mod = token_type_n(43),
-    Token_Bin_Not = token_type_n(44),
-    Token_Bin_And = token_type_n(45),
-    Token_Bin_Or = token_type_n(46),
-    Token_Bin_Xor = token_type_n(47),
-    Token_Shift_L = token_type_n(48),
-    Token_Shift_R = token_type_n(49),
-    Token_Eq = token_type_n(50),
-    Token_Not_Eq = token_type_n(51),
-    Token_Less = token_type_n(52),
-    Token_Greater = token_type_n(53),
-    Token_Less_Eq = token_type_n(54),
-    Token_Greater_Eq = token_type_n(55),
-    Token_Ref = token_type_n(56),
-    Token_Dot = token_type_n(57),
-    Token_Comma = token_type_n(58),
-    Token_Semicolon = token_type_n(59),
+    Token_Increment = bitset(26),
+    Token_Decrement = bitset(27),
+    Token_Nested_Begin = bitset(28),
+    Token_Nested_End = bitset(29),
+    Token_Scope_Begin = bitset(30),
+    Token_Scope_End = bitset(31),
+    Token_Crochet_Begin = bitset(32),
+    Token_Crochet_End = bitset(33),
+    Token_Declare = bitset(34),
+    Token_Define = bitset(35),
+    Token_Assign = bitset(36),
+    Token_Arrow = bitset(37),
+    Token_Not = bitset(38),
+    Token_Add = bitset(39),
+    Token_Sub = bitset(40),
+    Token_Mul = bitset(41),
+    Token_Div = bitset(42),
+    Token_Mod = bitset(43),
+    Token_Bin_Not = bitset(44),
+    Token_Bin_And = bitset(45),
+    Token_Bin_Or = bitset(46),
+    Token_Bin_Xor = bitset(47),
+    Token_Shift_L = bitset(48),
+    Token_Shift_R = bitset(49),
+    Token_Eq = bitset(50),
+    Token_Not_Eq = bitset(51),
+    Token_Less = bitset(52),
+    Token_Greater = bitset(53),
+    Token_Less_Eq = bitset(54),
+    Token_Greater_Eq = bitset(55),
+    Token_Ref = bitset(56),
+    Token_Dot = bitset(57),
+    Token_Comma = bitset(58),
+    Token_Semicolon = bitset(59),
 
-    Token_Type_Max = token_type_n(60),
+    Token_Arithmetic = Token_Add | Token_Sub | Token_Mul | Token_Div | Token_Mod | Token_Bin_Not | Token_Bin_And |
+                       Token_Bin_Or | Token_Bin_Xor | Token_Shift_L | Token_Shift_R,
+    Token_Logic =
+        Token_And | Token_Or | Token_Eq | Token_Not_Eq | Token_Less | Token_Less_Eq | Token_Greater | Token_Greater_Eq,
+
+    Token_Type_Max = bitset(60),
 };
 
 static Syntax_Map bee_syntax_map()
@@ -114,7 +115,7 @@ static Syntax_Map bee_syntax_map()
         {Token_If, "'if' /!a"},
         {Token_Return, "'return' /!a"},
         {Token_Switch, "'switch' /!a"},
-        {Token_While, "'while' /!a"},
+        {Token_In, "'in' /!a"},
         {Token_And, "'and' /!a"},
         {Token_Or, "'or' /!a"},
 
@@ -208,8 +209,8 @@ constexpr std::string_view token_typename(Token_Type type)
         return "return";
     case Token_Switch:
         return "switch";
-    case Token_While:
-        return "while";
+    case Token_In:
+        return "in";
     case Token_And:
         return "and";
     case Token_Or:

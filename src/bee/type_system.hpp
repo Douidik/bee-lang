@@ -30,6 +30,7 @@ struct Type_System
     Ast_Entity *u32_type;
     Ast_Entity *u64_type;
     Ast_Entity *char_type;
+    Ast_Entity *bool_type;
     Ast_Entity *ssize_type;
     Ast_Entity *usize_type;
     Ast_Entity *void_type;
@@ -44,7 +45,7 @@ struct Type_System
 
     Error errorf(std::string_view fmt, auto... args) const
     {
-        return errorf("type_system error", fmt::format(fmt::runtime(fmt), args...));
+        return Error{"type_system error", fmt::format(fmt::runtime(fmt), args...)};
     }
 };
 

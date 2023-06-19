@@ -5,19 +5,11 @@
 
 namespace bee
 {
-struct Def_Expr;
+struct Var_Expr;
 struct Ast_Entity;
 
 struct Void_Type : Ast_Entity_Impl<Ast_Entity_Void>
 {
-};
-
-struct Signature : Ast_Entity_Impl<Ast_Entity_Signature>
-{
-    Def_Expr *params;
-    Ast_Entity *type;
-
-    std::string make_name() const;
 };
 
 enum Atom_Desc : u32
@@ -31,6 +23,8 @@ struct Atom_Type : Ast_Entity_Impl<Ast_Entity_Atom>
 {
     Atom_Desc desc;
     u32 size;
+
+    f64 max() const;
 };
 
 struct Struct_Type : Ast_Entity_Impl<Ast_Entity_Struct>
