@@ -27,6 +27,7 @@ struct Parser
     Ast_Expr *parse_expr(u64 end_types);
     Ast_Expr *parse_one_expr(Ast_Expr *prev, u64 end_types);
 
+    Unary_Expr *parse_increment(Token op, Ast_Expr *prev, u64 end_types);
     Ast_Expr *parse_condition(Token kw, Ast_Expr *expr);
     If_Expr *parse_if(Token kw, u64 end_types);
     Ast_Expr *parse_for(Token kw, u64 end_types);

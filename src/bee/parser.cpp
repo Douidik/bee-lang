@@ -25,12 +25,14 @@ void Parser::parse()
 Compound_Expr Parser::parse_compound(u64 sep_types, u64 end_types)
 {
     Compound_Expr compound{};
+    Ast_Expr *expr = NULL;
     Token end;
 
     while (!(end = peek(end_types)).ok and !eof())
     {
-        if (Ast_Expr *expr = parse_one_expr(NULL, sep_types))
-            compound.push_back(expr);
+        expr = parse_one_expr(expr, sep_types);
+        if (expr != NULL)
+            compound.emplace_back(expr);
     }
 
     if (!end.ok)
@@ -44,12 +46,11 @@ Compound_Expr Parser::parse_compound(u64 sep_types, u64 end_types)
 Ast_Expr *Parser::parse_expr(u64 end_types)
 {
     Token end;
-    Ast_Expr *head = NULL;
+    Ast_Expr *expr = NULL;
 
     while (!(end = peek(end_types)).ok and !eof())
     {
-        if (Ast_Expr *expr = parse_one_expr(head, end_types))
-            head = expr;
+	expr = parse_one_expr(expr, end_types);
     }
 
     if (!end.ok)
@@ -57,31 +58,31 @@ Ast_Expr *Parser::parse_expr(u64 end_types)
         throw error_expected(end, end_types);
     }
 
-    return head;
+    return expr;
 }
 
 Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
 {
-    // '+' / '-' Disambiguation, Acts as a sign if there is no previous expression
+    // Prev-operand unary expression
     if (!prev)
     {
         if (Token sign = scan(Token_Add | Token_Sub); sign.ok)
         {
             Unary_Expr *unary_expr = ast.push_expr(Unary_Expr{});
             unary_expr->expr = parse_one_expr(NULL, end_types);
-            unary_expr->order = Prev_Expr;
+            unary_expr->order = Post_Expr;
             unary_expr->op = sign;
 
             return unary_expr;
         }
     }
 
-    Token token =
-        scan(Token_Id | Token_Char | Token_Str | Token_Int_Bin | Token_Int_Dec | Token_Int_Hex | Token_Float |
-             Token_Assign | Token_And | Token_Or | Token_Add | Token_Sub | Token_Mul | Token_Div | Token_Mod |
-             Token_Bin_Not | Token_Bin_And | Token_Bin_Or | Token_Bin_Xor | Token_Shift_L | Token_Shift_R | Token_Eq |
-             Token_Not_Eq | Token_Less | Token_Less_Eq | Token_Greater | Token_Greater_Eq | Token_Scope_Begin |
-             Token_Nested_Begin | Token_If | Token_Define | Token_Declare | Token_NewLine | Token_Return);
+    Token token = scan(Token_Id | Token_Char | Token_Str | Token_Int_Bin | Token_Int_Dec | Token_Int_Hex | Token_Float |
+                       Token_Increment | Token_Decrement | Token_Assign | Token_And | Token_Or | Token_Add | Token_Sub |
+                       Token_Mul | Token_Div | Token_Mod | Token_Bin_Not | Token_Bin_And | Token_Bin_Or |
+                       Token_Bin_Xor | Token_Shift_L | Token_Shift_R | Token_Eq | Token_Not_Eq | Token_Less |
+                       Token_Less_Eq | Token_Greater | Token_Greater_Eq | Token_Scope_Begin | Token_Nested_Begin |
+                       Token_If | Token_For | Token_Define | Token_Declare | Token_NewLine | Token_Return);
 
     if (!token.ok)
         throw error_expected(token, end_types);
@@ -123,7 +124,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         return parse_if(token, end_types);
 
     case Token_For:
-	return parse_for(token, end_types);
+        return parse_for(token, end_types);
 
     case Token_Id: {
         Id_Expr *expr = ast.push_expr(Id_Expr{});
@@ -204,6 +205,10 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         return expr;
     }
 
+    case Token_Increment:
+    case Token_Decrement:
+        return parse_increment(token, prev, end_types);
+
     case Token_Assign:
     case Token_And:
     case Token_Or:
@@ -254,6 +259,29 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     }
 }
 
+Unary_Expr *Parser::parse_increment(Token op, Ast_Expr *prev, u64 end_types)
+{
+    Unary_Expr *unary = ast.push_expr(Unary_Expr{});
+    unary->op = op;
+
+    if (prev != NULL)
+    {
+        unary->order = Post_Expr;
+        unary->expr = prev;
+    }
+    else
+    {
+        unary->order = Prev_Expr;
+        unary->expr = parse_expr(end_types);
+        if (!unary->expr)
+        {
+            throw errorf(op, "missing operand for '{}' increment operation", op.expr);
+        }
+    }
+
+    return unary;
+}
+
 Ast_Expr *Parser::parse_condition(Token kw, Ast_Expr *expr)
 {
     if (!expr)
@@ -278,7 +306,7 @@ If_Expr *Parser::parse_if(Token kw, u64 end_types)
 
     if (!expr->condition)
     {
-        throw errorf(kw, "TODO! implement labeled if expressions");
+        throw errorf(kw, "TODO! implement 'switch-if' expressions");
     }
 
     stack.push_back(expr);
@@ -315,31 +343,6 @@ Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
     // if (expr->kind() & In_Expr)
     // parse ranged expression
 
-    if (Token token = peek(Token_Scope_Begin); !expr || token.ok)
-    {
-        For_While_Expr *for_expr = ast.push_expr(For_While_Expr{});
-
-        if (!expr)
-        {
-            Int_Expr *true_expr = ast.push_expr(Int_Expr{});
-            true_expr->data = 1;
-            true_expr->size = 1;
-            expr = true_expr;
-        }
-
-        for_expr->condition = parse_condition(kw, expr);
-        for_expr->frame = frame;
-
-        Ast_Expr *scope = parse_one_expr(NULL, end_types);
-        if (!scope or scope->kind() != Ast_Expr_Scope)
-        {
-            throw errorf(kw, "expected scope after 'for' expression");
-        }
-        for_expr->scope = (Scope_Expr *)scope;
-
-        return ast.pop_frame(), for_expr;
-    }
-
     if (Token start_sep = scan(Token_Semicolon); start_sep.ok)
     {
         For_Expr *for_expr = ast.push_expr(For_Expr{});
@@ -364,6 +367,32 @@ Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
         return ast.pop_frame(), for_expr;
     }
 
+    if (Token token = peek(Token_Scope_Begin); !expr or token.ok)
+    {
+        For_While_Expr *for_expr = ast.push_expr(For_While_Expr{});
+
+        if (!expr)
+        {
+            Int_Expr *true_expr = ast.push_expr(Int_Expr{});
+            true_expr->data = 1;
+            true_expr->size = 1;
+            expr = true_expr;
+        }
+
+        for_expr->condition = parse_condition(kw, expr);
+        for_expr->frame = frame;
+
+        Ast_Expr *scope = parse_one_expr(NULL, end_types);
+        if (!scope or scope->kind() != Ast_Expr_Scope)
+        {
+            throw errorf(kw, "expected scope after 'for' expression");
+        }
+        for_expr->scope = (Scope_Expr *)scope;
+
+        return ast.pop_frame(), for_expr;
+    }
+
+    throw errorf(kw, "cannot parse 'for' expression");
     return NULL;
 }
 
@@ -399,7 +428,7 @@ Binary_Expr *Parser::parse_binary_expr(Ast_Expr *prev, Ast_Expr *post, Token op)
 
     if (op.type & Token_Assign)
     {
-        if (type_system.cast_type(post_type, prev_type) < Type_Cast_Transmuted)
+        if (type_system.cast_type(post_type, prev_type) >= Type_Cast_Transmuted)
         {
             throw errorf(op, "cannot perform assignment with discordant expressions '{}' and '{}'", prev_type->name,
                          post_type->name);

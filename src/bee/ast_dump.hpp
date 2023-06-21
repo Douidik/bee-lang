@@ -1,29 +1,54 @@
 #ifndef BEE_AST_DUMP_HPP
 #define BEE_AST_DUMP_HPP
 
+#include "error.hpp"
 #include "stream.hpp"
+#include <algorithm>
+#include <fmt/format.h>
 
 namespace bee
 {
+struct Ast;
 struct Ast_Expr;
 struct Ast_Entity;
 struct Ast_Frame;
-struct Ast;
 
-struct Ast_Dump : Standard_Stream
+struct Ast_Dump_Header
 {
+    std::string_view name;
+    s32 depth;
+};
+
+struct Ast_Dump : Stream
+{
+    Ast &ast;
+
     Ast_Dump(Ast &ast);
-
-    void stack_dump(Ast_Frame *frame, s32 depth);
-    void expr_dump(Ast_Expr *ast_expr, s32 depth);
-    void entity_dump(Ast_Entity *ast_entity, s32 depth);
-
-    void print(s32 depth, std::string_view fmt, auto... args)
-    {
-        std_print("{:\t>{}}- ", "", depth);
-        std_print(fmt, args...);
-    }
+    void frame_dump(Ast_Dump_Header h, Ast_Frame *frame);
+    void expr_dump(Ast_Dump_Header h, Ast_Expr *ast_expr);
+    void entity_dump(Ast_Dump_Header h, Ast_Entity *ast_entity);
 };
 
 } // namespace bee
+
+namespace fmt
+{
+using namespace bee;
+
+template <>
+struct formatter<Ast_Dump_Header>
+{
+    constexpr auto parse(format_parse_context &context)
+    {
+        return context.begin();
+    }
+
+    constexpr auto format(const Ast_Dump_Header &h, auto &context) const
+    {
+        return format_to(context.out(), "{:\t>{}} {}:", "", h.depth, h.name);
+    }
+};
+
+} // namespace fmt
+
 #endif

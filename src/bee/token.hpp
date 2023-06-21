@@ -147,6 +147,9 @@ static Syntax_Map bee_syntax_map()
         {Token_Declare, "'::'"},
         {Token_Define, "':'"},
 
+        {Token_Mul, "'*'"},
+        {Token_Div, "'/'"},
+        {Token_Mod, "'%'"},
         {Token_Semicolon, "';'"},
         {Token_Comma, "','"},
         {Token_Dot, "'.'"},

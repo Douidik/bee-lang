@@ -1,194 +1,205 @@
 #include "ast_dump.hpp"
 #include "ast.hpp"
-#include "escape_sequence.hpp"
-#include "expr.hpp"
 #include "function.hpp"
-#include "type.hpp"
 #include "var.hpp"
 
 namespace bee
 {
 
-s32 stack_depth(Ast_Frame *frame)
+s32 frame_depth(Ast_Frame *frame)
 {
-    return 1 + (frame->owner ? stack_depth(frame->owner) : 0);
+    return frame ? frame_depth(frame->owner) + 1 : 0;
 }
 
-Ast_Dump::Ast_Dump(Ast &ast)
+Ast_Dump::Ast_Dump(Ast &ast) : ast(ast)
 {
-    print(0, "Ast_Stack\n");
-    stack_dump(ast.frame, stack_depth(ast.frame));
-    print(0, "Ast_Expressions\n");
-    expr_dump(ast.main_scope, 1);
+    frame_dump({"main_frame", 0}, ast.main_frame);
+    expr_dump({"main_scope", 0}, ast.main_scope);
 }
 
-void Ast_Dump::stack_dump(Ast_Frame *frame, s32 depth)
+void Ast_Dump::frame_dump(Ast_Dump_Header h, Ast_Frame *frame)
 {
-    if (!frame)
-        return;
-
-    for (auto &[name, entity] : frame->defs)
+    if (!frame or frame->defs.empty())
     {
-        entity_dump(entity, depth);
+        print("{} (empty-frame)\n", h);
+        return;
     }
-
-    stack_dump(frame->owner, depth - 1);
+    print("{}\n", h);
+    for (auto &[name, entity] : frame->defs)
+        entity_dump({"", h.depth + 1}, entity);
 }
 
-void Ast_Dump::expr_dump(Ast_Expr *ast_expr, s32 depth)
+void Ast_Dump::expr_dump(Ast_Dump_Header h, Ast_Expr *ast_expr)
 {
     if (!ast_expr)
     {
-        print(depth, "(NULL)\n");
+        print("{} (none)\n", h);
         return;
     }
 
     switch (ast_expr->kind())
     {
-    case Ast_Expr_None: {
-        print(depth, "None_Expr\n");
-        break;
-    }
-
     case Ast_Expr_Unary: {
-        auto &[op, order, expr] = *(Unary_Expr *)ast_expr;
-        print(depth, "Unary_Expr (op: '{:s}', order: '{:s}')\n", op.expr, order_expr_name(order));
+        Unary_Expr *unary = (Unary_Expr *)ast_expr;
+        print("{} unary-expr [op: '{:s}', order: '{:s}']\n", h, unary->op.expr, order_expr_name(unary->order));
+        expr_dump({"expr", h.depth + 1}, unary->expr);
         break;
     }
 
     case Ast_Expr_Binary: {
-        auto &[op, type, prev, post] = *(Binary_Expr *)ast_expr;
-        print(depth, "Binary_Expr (op: '{:s}')\n", op.expr);
-        expr_dump(prev, depth + 1), expr_dump(post, depth + 1);
-        entity_dump(type, depth + 1);
+        Binary_Expr *binary = (Binary_Expr *)ast_expr;
+        print("{} binary-expr [op: '{:s}']\n", h, binary->op.expr);
+        expr_dump({"prev", h.depth + 1}, binary->prev);
+        expr_dump({"post", h.depth + 1}, binary->post);
+        entity_dump({"type", h.depth + 1}, binary->type);
         break;
     }
 
     case Ast_Expr_Nested: {
         Nested_Expr *nested = (Nested_Expr *)ast_expr;
-        print(depth, "Nested_Expr\n");
-        expr_dump(nested->expr, depth + 1);
+        print("{} nested-expr\n", h);
+        expr_dump({"expr", h.depth + 1}, nested->expr);
         break;
     }
 
     case Ast_Expr_Scope: {
         Scope_Expr *scope = (Scope_Expr *)ast_expr;
-        print(depth, "Scope_Expr\n");
-        if (scope->compound != NULL and !scope->compound->empty())
+        print("{} scope-expr\n", h);
+        frame_dump({"frame", h.depth + 1}, scope->frame);
+
+        if (!scope->compound or scope->compound->empty())
         {
-            for (Ast_Expr *expr : *scope->compound)
-            {
-                expr_dump(expr, depth + 1);
-            }
-        }
-        else
-        {
-            print(depth + 1, "(Empty scope)\n");
+            print("(empty-scope)\n");
+            break;
         }
 
-        break;
-    }
-
-    case Ast_Expr_If: {
-        auto &[cond, scope] = *(If_Expr *)ast_expr;
-        print(depth, "If_Expr\n");
-        expr_dump(cond, depth + 1);
-        expr_dump(scope, depth + 1);
+        for (Ast_Expr *expr : *scope->compound)
+        {
+            expr_dump({">", h.depth + 1}, expr);
+        }
         break;
     }
 
     case Ast_Expr_Return: {
         Return_Expr *return_expr = (Return_Expr *)ast_expr;
-        print(depth, "Return_Expr\n");
-        expr_dump(return_expr->expr, depth + 1);
+        print("{} return-expr\n", h);
+        expr_dump({"expr", h.depth + 1}, return_expr->expr);
         break;
     }
 
     case Ast_Expr_Id: {
         Id_Expr *id = (Id_Expr *)ast_expr;
-        print(depth, "Id_Expr\n");
-        entity_dump(id->entity, depth + 1);
+        print("{} id-expr\n", h);
+        entity_dump({"entity", h.depth + 1}, id->entity);
         break;
     }
 
     case Ast_Expr_Var: {
-        auto &[entity, expr, op, name, next] = *(Var_Expr *)ast_expr;
-        print(depth, "Def_Expr (op: '{:s}', name: '{:s}')\n", op.expr, name.expr);
-        expr_dump(expr, depth + 1);
-        entity_dump(entity, depth + 1);
-        if (next != NULL)
-            expr_dump(next, depth + 1);
+        Var_Expr *var = (Var_Expr *)ast_expr;
+        print("{} var-expr [name: '{:s}', op: '{:s}']\n", h, var->name.expr, var->op.expr);
+        entity_dump({"var", h.depth + 1}, var->var);
+        expr_dump({"expr", h.depth + 1}, var->expr);
+        expr_dump({"next", h.depth + 1}, var->next);
         break;
     }
 
     case Ast_Expr_Char: {
-        auto &[c] = *(Char_Expr *)ast_expr;
-        print(depth, "Char_Expr (data: '{:s}')\n", escape_sequence(c));
+        Char_Expr *char_expr = (Char_Expr *)ast_expr;
+        print("{} char-expr [data: '{:c}']\n", h, char_expr->data);
         break;
     }
 
     case Ast_Expr_Str: {
-        auto &[s] = *(Str_Expr *)ast_expr;
-        print(depth, "Str_Expr (data: '{:s}')\n", escape_string(s));
+        Str_Expr *str_expr = (Str_Expr *)ast_expr;
+        print("{} str-expr [data: '{:s}']\n", h, str_expr->data);
         break;
     }
 
     case Ast_Expr_Int: {
-        auto &[data, size] = *(Int_Expr *)ast_expr;
-        print(depth, "Int_Expr (data: {:d}, size: {:d})\n", data, size);
+        Int_Expr *int_expr = (Int_Expr *)ast_expr;
+        print("{} int-expr [data: '{:d}', size: {:d}]\n", h, int_expr->data, int_expr->size);
         break;
     }
 
     case Ast_Expr_Float: {
-        auto &[data, size] = *(Float_Expr *)ast_expr;
-        print(depth, "Float_Expr (data: {:f}, size: {:d})\n", data, size);
+        Float_Expr *float_expr = (Float_Expr *)ast_expr;
+        print("{} float-expr [data: '{:f}', size: {:d}]\n", h, float_expr->data, float_expr->size);
         break;
     }
 
     case Ast_Expr_Signature: {
         Signature_Expr *signature = (Signature_Expr *)ast_expr;
-        print(depth, "Signature_Expr\n");
-        expr_dump(signature->params, depth + 1);
-        entity_dump(signature->type, depth + 1);
+        print("{} signature-expr\n", h);
+        expr_dump({"params", h.depth + 1}, signature->params);
+        entity_dump({"type", h.depth + 1}, signature->type);
+        frame_dump({"frame", h.depth + 1}, signature->frame);
         break;
     }
 
     case Ast_Expr_Function: {
         Function_Expr *function = (Function_Expr *)ast_expr;
-        print(depth, "Function_Expr\n");
-        entity_dump(function->function, depth + 1);
-        expr_dump(function->scope, depth + 1);
+        print("{} function-expr\n", h);
+        entity_dump({"function", h.depth + 1}, function->function);
+        expr_dump({"scope", h.depth + 1}, function->scope);
         break;
     }
 
     case Ast_Expr_Argument: {
-        auto &[expr, next] = *(Argument_Expr *)ast_expr;
-        print(depth, "Argument_Expr\n");
-        expr_dump(expr, depth + 1);
-        expr_dump(next, depth + 1);
+        Argument_Expr *argument = (Argument_Expr *)ast_expr;
+        print("{} argument-expr\n", h);
+        expr_dump({"expr", h.depth + 1}, argument->expr);
+        expr_dump({"next", h.depth + 1}, argument->next);
         break;
     }
 
     case Ast_Expr_Invoke: {
-        auto &[function, args] = *(Invoke_Expr *)ast_expr;
-        print(depth, "Invoke_Expr\n");
-        entity_dump(function, depth + 1);
-        expr_dump(args, depth + 1);
+        Invoke_Expr *invoke = (Invoke_Expr *)ast_expr;
+        print("{} invoke-expr\n", h);
+        expr_dump({"args", h.depth + 1}, invoke->args);
+        entity_dump({"function", h.depth + 1}, invoke->function);
+        break;
+    }
+
+    case Ast_Expr_If: {
+        If_Expr *if_expr = (If_Expr *)ast_expr;
+        print("{} if-expr\n", h);
+        expr_dump({"condition", h.depth + 1}, if_expr->condition);
+        expr_dump({"scope-if", h.depth + 1}, if_expr->scope_if);
+        expr_dump({"scope-else", h.depth + 1}, if_expr->scope_else);
+        break;
+    }
+
+    case Ast_Expr_For: {
+        For_Expr *for_expr = (For_Expr *)ast_expr;
+        print("{} for-expr\n", h);
+        expr_dump({"start", h.depth + 1}, for_expr->start);
+        expr_dump({"condition", h.depth + 1}, for_expr->condition);
+        expr_dump({"iteration", h.depth + 1}, for_expr->iteration);
+        expr_dump({"scope", h.depth + 1}, for_expr->scope);
+        frame_dump({"frame", h.depth + 1}, for_expr->frame);
+        break;
+    }
+
+    case Ast_Expr_For_While: {
+        For_While_Expr *for_expr = (For_While_Expr *)ast_expr;
+        print("{} for-while-expr\n", h);
+        expr_dump({"condition", h.depth + 1}, for_expr->condition);
+        expr_dump({"scope", h.depth + 1}, for_expr->scope);
         break;
     }
 
     default: {
-        print(depth, "TODO! dump_expr() for {:s}\n", ast_expr_kind_name(ast_expr->kind()));
+        print("{} TODO! Implement expression '{:s}' for expr_dump()'\n", h, ast_expr_kind_name(ast_expr->kind()));
         break;
     }
     }
 }
 
-void Ast_Dump::entity_dump(Ast_Entity *ast_entity, s32 depth)
+void Ast_Dump::entity_dump(Ast_Dump_Header h, Ast_Entity *ast_entity)
 {
     if (!ast_entity)
     {
-        print(depth, "(NULL)\n");
+        print("{} (none)\n", h);
         return;
     }
 
@@ -196,31 +207,33 @@ void Ast_Dump::entity_dump(Ast_Entity *ast_entity, s32 depth)
     {
     case Ast_Entity_Var: {
         Var *var = (Var *)ast_entity;
-        print(depth, "Var (name: '{}')\n", ast_entity->name);
-        entity_dump(var->type, depth + 1);
+        print("{} var [name: '{}']\n", h, var->name);
+        entity_dump({"type", h.depth + 1}, var->type);
         break;
     }
 
     case Ast_Entity_Function: {
         Function *function = (Function *)ast_entity;
-        print(depth, "Function '{:s}'\n", function->repr());
+        print("{} function '{}'\n", h, function->repr());
+        expr_dump({"params", h.depth + 1}, function->params);
+        entity_dump({"type", h.depth + 1}, function->type);
         break;
     }
 
     case Ast_Entity_Void: {
-        print(depth, "Void_Type\n");
+        print("{} void\n", h);
         break;
     }
 
     case Ast_Entity_Atom: {
         Atom_Type *atom = (Atom_Type *)ast_entity;
-        print(depth, "Atom_Type (name: '{}', desc: {:s}, size: {:d})\n", atom->name, atom_desc_name(atom->desc),
-              atom->size);
+        std::string_view desc = atom_desc_name(atom->desc);
+        print("{} atom [name: '{}', desc: '{:s}', size: {:d}]\n", h, atom->name, desc, atom->size);
         break;
     }
 
     default: {
-        print(depth, "TODO! dump_entity() for {:s}\n", ast_entity_kind_name(ast_entity->kind()));
+        print("{} TODO! Implement entity '{:s}' for entity_dump()'\n", h, ast_entity_kind_name(ast_entity->kind()));
         break;
     }
     }

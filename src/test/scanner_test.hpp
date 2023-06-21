@@ -216,7 +216,7 @@ TEST(Scanner, Keyword)
     EXPECT_SCAN("if", {"if", Token_If});
     EXPECT_SCAN("return", {"return", Token_Return});
     EXPECT_SCAN("switch", {"switch", Token_Switch});
-    EXPECT_SCAN("while", {"while", Token_While});
+    EXPECT_SCAN("for", {"while", Token_For});
     EXPECT_SCAN("and", {"and", Token_And});
     EXPECT_SCAN("or", {"or", Token_Or});
 }

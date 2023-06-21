@@ -9,30 +9,20 @@
 namespace bee
 {
 
-struct Standard_Stream
+struct Stream
 {
     fmt::memory_buffer buffer;
 
-    Standard_Stream() : buffer() {}
-
+    Stream() = default;
+    
     std::string_view str() const
     {
         return std::string_view{buffer.begin(), buffer.end()};
     }
 
-    Standard_Stream &std_print(std::string_view fmt, auto... args)
-    {
-	// fmt::print(fmt::runtime(fmt), args...);
-        fmt::format_to(std::back_inserter(buffer), fmt::runtime(fmt), args...);
-        return *this;
-    }
-};
-
-struct Stream : Standard_Stream
-{
     Stream &print(std::string_view fmt, auto... args)
     {
-        std_print(fmt, args...);
+        fmt::format_to(std::back_inserter(buffer), fmt::runtime(fmt), args...);
         return *this;
     }
 };

@@ -11,7 +11,6 @@ struct Function : Ast_Entity_Impl<Ast_Entity_Function>
 {
     Var_Expr *params;
     Ast_Entity *type;
-    Function *owner;
 
     std::string repr() const;
 };

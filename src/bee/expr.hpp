@@ -33,11 +33,10 @@ enum Ast_Expr_Kind : u32
     Ast_Expr_Function = bitset(13),
     Ast_Expr_Argument = bitset(14),
     Ast_Expr_Invoke = bitset(15),
-    Ast_Expr_Condition = bitset(16),
-    Ast_Expr_If = bitset(17),
-    Ast_Expr_For = bitset(18),
-    Ast_Expr_For_Range = bitset(19),
-    Ast_Expr_For_While = bitset(20),
+    Ast_Expr_If = bitset(16),
+    Ast_Expr_For = bitset(17),
+    Ast_Expr_For_Range = bitset(18),
+    Ast_Expr_For_While = bitset(19),
 
     Ast_Expr_Lit = Ast_Expr_Char | Ast_Expr_Str | Ast_Expr_Int | Ast_Expr_Float,
 };
@@ -145,8 +144,6 @@ struct Signature_Expr : Ast_Expr_Impl<Ast_Expr_Signature>
     Var_Expr *params;
     Ast_Entity *type;
     Ast_Frame *frame;
-
-    std::string name() const;
 };
 
 struct Function_Expr : Ast_Expr_Impl<Ast_Expr_Function>
@@ -193,9 +190,9 @@ struct For_Expr : Ast_Expr_Impl<Ast_Expr_For>
 
 struct For_While_Expr : Ast_Expr_Impl<Ast_Expr_For_While>
 {
-    Ast_Frame *frame;
     Ast_Expr *condition;
     Scope_Expr *scope;
+    Ast_Frame *frame;
 };
 
 constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
@@ -236,8 +233,6 @@ constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)
         return "Ast_Expr_Invoke";
     case Ast_Expr_Argument:
         return "Ast_Expr_Argument";
-    case Ast_Expr_Condition:
-        return "Ast_Expr_Condition";
     default:
         return "?";
     }
