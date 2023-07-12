@@ -18,6 +18,7 @@ enum Ast_Entity_Kind : u32
     Ast_Entity_Atom = bitset(3),
     Ast_Entity_Struct = bitset(4),
     Ast_Entity_Enum = bitset(5),
+    Ast_Entity_Record = bitset(6),
     Ast_Entity_Type = Ast_Entity_Void | Ast_Entity_Function | Ast_Entity_Atom | Ast_Entity_Struct | Ast_Entity_Enum,
 };
 

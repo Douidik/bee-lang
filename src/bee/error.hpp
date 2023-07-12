@@ -10,15 +10,15 @@ namespace bee
 
 struct Error : std::exception
 {
+    std::string_view name;
+    std::string buffer;
+    
     Error(std::string_view name, std::string buffer) : name{name}, buffer{buffer} {}
 
     const char *what() const noexcept override
     {
         return buffer.c_str();
     }
-
-    std::string_view name;
-    std::string buffer;
 };
 
 } // namespace bee

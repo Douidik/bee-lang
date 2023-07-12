@@ -23,7 +23,7 @@ struct Parser
     Parser(Scanner &scanner);
     void parse();
 
-    Compound_Expr parse_compound(u64 sep_types, u64 end_types);
+    Compound_Expr *parse_compound(u64 sep_types, u64 end_types);
     Ast_Expr *parse_expr(u64 end_types);
     Ast_Expr *parse_one_expr(Ast_Expr *prev, u64 end_types);
 
@@ -35,12 +35,16 @@ struct Parser
     Ast_Entity *parse_type(Token token, u64 end_types);
     Binary_Expr *parse_binary_expr(Ast_Expr *prev, Ast_Expr *post, Token op);
     Ast_Expr *parse_def(Id_Expr *id, Token op, u64 end_types);
-    Var_Expr *parse_var(Id_Expr *id, Token op, Ast_Expr *expr, Ast_Entity *type, u64 end_types);
+    Typedef_Expr *parse_typedef(Id_Expr *id, Token op, Record_Expr *record, u64 end_types);
+    Var_Expr *parse_var(Id_Expr *name, Token op, Ast_Expr *expr, Ast_Entity *type, u64 end_types);
     Function_Expr *parse_function(Id_Expr *id, Token op, Signature_Expr *signature, u64 end_types);
     Signature_Expr *parse_signature(Var_Expr *params, u64 end_types);
     Invoke_Expr *parse_invoke(Id_Expr *id, Token token);
     Argument_Expr *parse_argument(Var_Expr *param, Token token);
-
+    Record_Expr *parse_record(Token kw, u64 end_types);
+    Struct_Expr *parse_struct(Ast_Expr *prev, Token scope_begin);
+    Member_Expr *parse_member(Struct_Type *type, s32 n);
+    
     Ast_Expr *stack_find(Ast_Expr_Kind kind) const;
 
     bool eof() const;
@@ -52,7 +56,7 @@ struct Parser
     Error errorf(Token token, std::string_view fmt, auto... args)
     {
         fmt::print("{}", Ast_Dump{ast}.str());
-        return bee_errorf("parser error", scanner.src, token, fmt, args...);
+        return bee_errorf("parser error", scanner.source, token, fmt, args...);
     }
 };
 

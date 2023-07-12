@@ -3,7 +3,7 @@
 namespace bee
 {
 
-Scanner::Scanner(std::string_view src, Syntax_Map map) : src{src}, next{src}, map{map}
+Scanner::Scanner(std::string_view src, Syntax_Map map) : source{src}, next{src}, map{map}
 {
     if (!src.ends_with('\n'))
     {
@@ -43,7 +43,7 @@ Token Scanner::tokenize()
 
 Token Scanner::dummy_token(Token_Type type) const
 {
-    return Token{std::string_view{&src.back(), 1}, type, true};
+    return Token{std::string_view{&source.back(), 1}, type, true};
 }
 
 bool Scanner::eof() const

@@ -93,8 +93,24 @@ enum Token_Type : u64
     Token_Logic =
         Token_And | Token_Or | Token_Eq | Token_Not_Eq | Token_Less | Token_Less_Eq | Token_Greater | Token_Greater_Eq,
 
-    Token_Type_Max = bitset(60),
+    Token_Piped = bitset(60),
+    Token_Type_Max = bitset(61),
 };
+
+static Token operator|(Token a, Token b)
+{
+    Token token;
+
+    token.ok = false;
+    token.type = Token_Piped;
+
+    token.expr = std::string_view{
+        std::min(a.expr.begin(), b.expr.begin()),
+        std::max(a.expr.end(), b.expr.end()),
+    };
+
+    return token;
+}
 
 static Syntax_Map bee_syntax_map()
 {

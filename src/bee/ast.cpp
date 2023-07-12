@@ -22,7 +22,7 @@ Ast_Entity *Ast_Frame::find(std::string_view name)
     return owner != NULL ? owner->find(name) : NULL;
 }
 
-Compound_Expr *Ast::compound_push(Compound_Expr compound)
+Compound_Expr *Ast::push_compound(Compound_Expr compound)
 {
     return &compounds.emplace_back(compound);
 }

@@ -9,7 +9,7 @@ namespace bee
 
 struct Scanner
 {
-    std::string_view src;
+    std::string_view source;
     std::string_view next;
     Syntax_Map map;
 
@@ -21,7 +21,7 @@ struct Scanner
 
     Error errorf(Token token, std::string_view fmt, auto... args)
     {
-        return bee_errorf("scanner error", src, token, fmt, args...);
+        return bee_errorf("scanner error", source, token, fmt, args...);
     }
 };
 

@@ -37,7 +37,7 @@ struct Ast
     Ast_Expr *find(std::string_view name);
     Ast_Frame *push_frame(Ast_Frame *f);
     Ast_Frame *pop_frame();
-    Compound_Expr *compound_push(Compound_Expr compound);
+    Compound_Expr *push_compound(Compound_Expr compound);
 
     template <typename T>
     T *push_expr(T expr)

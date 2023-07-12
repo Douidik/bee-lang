@@ -14,6 +14,8 @@ struct Ast_Frame;
 struct Ast_Entity;
 struct Var;
 struct Function;
+struct Struct_Type;
+struct Enum_Type;
 
 enum Ast_Expr_Kind : u32
 {
@@ -37,6 +39,10 @@ enum Ast_Expr_Kind : u32
     Ast_Expr_For = bitset(17),
     Ast_Expr_For_Range = bitset(18),
     Ast_Expr_For_While = bitset(19),
+    Ast_Expr_Typedef = bitset(20),
+    Ast_Expr_Record = bitset(21),
+    Ast_Expr_Struct = bitset(22),
+    Ast_Expr_Member = bitset(23),
 
     Ast_Expr_Lit = Ast_Expr_Char | Ast_Expr_Str | Ast_Expr_Int | Ast_Expr_Float,
 };
@@ -53,6 +59,8 @@ struct Ast_Expr
 {
     virtual ~Ast_Expr() = default;
     virtual Ast_Expr_Kind kind() const = 0;
+
+    Token repr;
 };
 
 template <Ast_Expr_Kind K>
@@ -193,6 +201,33 @@ struct For_While_Expr : Ast_Expr_Impl<Ast_Expr_For_While>
     Ast_Expr *condition;
     Scope_Expr *scope;
     Ast_Frame *frame;
+};
+struct Typedef_Expr : Ast_Expr_Impl<Ast_Expr_Typedef>
+{
+    Token op;
+    Token name;
+    Ast_Entity *type;
+};
+
+struct Record_Expr : Ast_Expr_Impl<Ast_Expr_Record>
+{
+    Token kw;
+    Scope_Expr *scope;
+    Ast_Frame *frame;
+};
+ 
+struct Member_Expr : Ast_Expr_Impl<Ast_Expr_Member>
+{
+    Id_Expr *id;
+    Token op;
+    Ast_Expr *expr;
+    Member_Expr *next;
+};
+
+struct Struct_Expr : Ast_Expr_Impl<Ast_Expr_Struct>
+{
+    Struct_Type *type;
+    Member_Expr *members;
 };
 
 constexpr std::string_view ast_expr_kind_name(Ast_Expr_Kind kind)

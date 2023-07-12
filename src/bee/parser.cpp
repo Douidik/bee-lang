@@ -18,13 +18,12 @@ void Parser::parse()
     ast.main_scope = ast.push_expr(Scope_Expr{});
     type_system.std_types(&ast);
 
-    Compound_Expr compound = parse_compound(Token_NewLine, Token_Eof);
-    ast.main_scope->compound = ast.compound_push(compound);
+    ast.main_scope->compound = parse_compound(Token_NewLine, Token_Eof);
 }
 
-Compound_Expr Parser::parse_compound(u64 sep_types, u64 end_types)
+Compound_Expr *Parser::parse_compound(u64 sep_types, u64 end_types)
 {
-    Compound_Expr compound{};
+    Compound_Expr *compound = ast.push_compound(Compound_Expr{});
     Ast_Expr *expr = NULL;
     Token end;
 
@@ -32,7 +31,7 @@ Compound_Expr Parser::parse_compound(u64 sep_types, u64 end_types)
     {
         expr = parse_one_expr(expr, sep_types);
         if (expr != NULL)
-            compound.emplace_back(expr);
+            compound->emplace_back(expr);
     }
 
     if (!end.ok)
@@ -50,7 +49,7 @@ Ast_Expr *Parser::parse_expr(u64 end_types)
 
     while (!(end = peek(end_types)).ok and !eof())
     {
-	expr = parse_one_expr(expr, end_types);
+        expr = parse_one_expr(expr, end_types);
     }
 
     if (!end.ok)
@@ -69,20 +68,27 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         if (Token sign = scan(Token_Add | Token_Sub); sign.ok)
         {
             Unary_Expr *unary_expr = ast.push_expr(Unary_Expr{});
-            unary_expr->expr = parse_one_expr(NULL, end_types);
-            unary_expr->order = Post_Expr;
             unary_expr->op = sign;
+            unary_expr->order = Post_Expr;
+            unary_expr->expr = parse_one_expr(NULL, end_types);
+            unary_expr->repr = unary_expr->op | unary_expr->expr->repr;
+
+            if (type_system.expr_type(unary_expr->expr)->kind() != Ast_Entity_Atom)
+            {
+                throw errorf(sign, "cannot sign a expression that does not reduce to an atom");
+            }
 
             return unary_expr;
         }
     }
 
-    Token token = scan(Token_Id | Token_Char | Token_Str | Token_Int_Bin | Token_Int_Dec | Token_Int_Hex | Token_Float |
-                       Token_Increment | Token_Decrement | Token_Assign | Token_And | Token_Or | Token_Add | Token_Sub |
-                       Token_Mul | Token_Div | Token_Mod | Token_Bin_Not | Token_Bin_And | Token_Bin_Or |
-                       Token_Bin_Xor | Token_Shift_L | Token_Shift_R | Token_Eq | Token_Not_Eq | Token_Less |
-                       Token_Less_Eq | Token_Greater | Token_Greater_Eq | Token_Scope_Begin | Token_Nested_Begin |
-                       Token_If | Token_For | Token_Define | Token_Declare | Token_NewLine | Token_Return);
+    Token token =
+        scan(Token_Id | Token_Char | Token_Str | Token_Int_Bin | Token_Int_Dec | Token_Int_Hex | Token_Float |
+             Token_Increment | Token_Decrement | Token_Assign | Token_And | Token_Or | Token_Add | Token_Sub |
+             Token_Mul | Token_Div | Token_Mod | Token_Bin_Not | Token_Bin_And | Token_Bin_Or | Token_Bin_Xor |
+             Token_Shift_L | Token_Shift_R | Token_Eq | Token_Not_Eq | Token_Less | Token_Less_Eq | Token_Greater |
+             Token_Greater_Eq | Token_Scope_Begin | Token_Nested_Begin | Token_If | Token_For | Token_Define |
+             Token_Declare | Token_NewLine | Token_Return | Token_Struct | Token_Enum);
 
     if (!token.ok)
         throw error_expected(token, end_types);
@@ -90,6 +96,11 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     switch (token.type)
     {
     case Token_Scope_Begin: {
+        if (prev != NULL)
+        {
+            return parse_struct((Id_Expr *)prev);
+        }
+
         Ast_Frame *frame = ast.push_frame(new Ast_Frame{});
         Scope_Expr *scope = parse_scope(frame, Token_NewLine, Token_Scope_End);
         ast.pop_frame();
@@ -251,6 +262,10 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         return return_expr;
     }
 
+    case Token_Struct:
+    case Token_Enum:
+        return parse_record(token, end_types);
+
     default: {
         if (token.type & end_types)
             return NULL;
@@ -399,11 +414,14 @@ Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
 Scope_Expr *Parser::parse_scope(Ast_Frame *frame, u64 sep_types, u64 end_types)
 {
     Scope_Expr *expr = ast.push_expr(Scope_Expr{});
-    Compound_Expr compound = parse_compound(sep_types, end_types);
-    scan(end_types);
-
     expr->frame = frame;
-    expr->compound = ast.compound_push(compound);
+    expr->compound = parse_compound(sep_types, end_types);
+
+    if (Token end = scan(end_types); !end.ok)
+    {
+        throw error_expected(end, end_types);
+    }
+
     return expr;
 }
 
@@ -506,6 +524,55 @@ Ast_Expr *Parser::parse_def(Id_Expr *id, Token op, u64 end_types)
     return parse_var(id, op, expr, type, end_types);
 }
 
+Var_Expr *Parser::parse_var(Id_Expr *id, Token op, Ast_Expr *expr, Ast_Entity *type, u64 end_types)
+{
+    Var_Expr *var_expr = ast.push_expr(Var_Expr{});
+    var_expr->op = op;
+    var_expr->name = id->name;
+
+    var_expr->var = new Var{};
+    var_expr->var->name = id->name.expr;
+    var_expr->var->type = type;
+    ast.frame->push(var_expr->var);
+
+    if (Token comma = scan(Token_Comma); comma.ok)
+    {
+        var_expr->next = (Var_Expr *)parse_one_expr(NULL, end_types);
+        if (!var_expr or var_expr->next->kind() != Ast_Expr_Var)
+            throw errorf(comma, "expected new var expression intion after comma");
+    }
+
+    return var_expr;
+}
+
+Typedef_Expr *Parser::parse_typedef(Id_Expr *id, Token op, Record_Expr *record, u64 end_types)
+{
+    Typedef_Expr *typedef_expr = ast.push_expr(Typedef_Expr{});
+
+    switch (record->kw.type)
+    {
+    case Token_Struct: {
+        Struct_Type *type = ast.frame->push(new Struct_Type{});
+        type->name = id->name.expr;
+        type->frame = record->frame;
+        typedef_expr->type = type;
+    }
+
+    case Token_Enum: {
+        Enum_Type *type = ast.frame->push(new Enum_Type{});
+        type->name = id->name.expr;
+        type->frame = record->frame;
+        typedef_expr->type = type;
+    }
+
+    default: {
+        throw errorf(record->kw, "cannot typedef a non-record expression");
+    }
+    }
+
+    return typedef_expr;
+}
+
 Function_Expr *Parser::parse_function(Id_Expr *id, Token op, Signature_Expr *signature, u64 end_types)
 {
     Function *function = new Function{};
@@ -535,27 +602,6 @@ Function_Expr *Parser::parse_function(Id_Expr *id, Token op, Signature_Expr *sig
     function_expr->scope = (Scope_Expr *)scope;
 
     return function_expr;
-}
-
-Var_Expr *Parser::parse_var(Id_Expr *id, Token op, Ast_Expr *expr, Ast_Entity *type, u64 end_types)
-{
-    Var_Expr *var_expr = ast.push_expr(Var_Expr{});
-    var_expr->op = op;
-    var_expr->name = id->name;
-
-    var_expr->var = new Var{};
-    var_expr->var->name = id->name.expr;
-    var_expr->var->type = type;
-    ast.frame->push(var_expr->var);
-
-    if (Token comma = scan(Token_Comma); comma.ok)
-    {
-        var_expr->next = (Var_Expr *)parse_one_expr(NULL, end_types);
-        if (!var_expr or var_expr->next->kind() != Ast_Expr_Var)
-            throw errorf(comma, "expected new var expression intion after comma");
-    }
-
-    return var_expr;
 }
 
 Invoke_Expr *Parser::parse_invoke(Id_Expr *id, Token token)
@@ -647,6 +693,72 @@ Ast_Entity *Parser::parse_type(Token token, u64 end_types)
     return id->entity;
 }
 
+Record_Expr *Parser::parse_record(Token kw, u64 end_types)
+{
+    Record_Expr *record = ast.push_expr(Record_Expr{});
+    record->kw = kw;
+    record->frame = ast.push_frame(new Ast_Frame{});
+
+    if (Token scope_begin = scan(Token_Scope_Begin); !scope_begin.ok)
+    {
+        throw errorf(scope_begin, "expected 'struct' body");
+    }
+
+    record->scope = parse_scope(record->frame, Token_NewLine, Token_Scope_End);
+    for (Ast_Expr *expr : *record->scope->compound)
+    {
+        if (kw.type & Token_Struct and expr->kind() & ~(Ast_Expr_Var | Ast_Expr_Function))
+        {
+            std::string_view expr_name = ast_expr_kind_name(expr->kind());
+            throw errorf(kw, "struct scope must only contain variable and function definitions got '{:s}'", expr_name);
+        }
+
+        if (kw.type & Token_Enum)
+        {
+            if (expr->kind() != Ast_Expr_Var)
+            {
+                std::string_view expr_name = ast_expr_kind_name(expr->kind());
+                throw errorf(kw, "enum scope must only contain constant declaration got '{:s}'", expr_name);
+            }
+
+            if (Var_Expr *var = (Var_Expr *)expr; var->op.type != Token_Declare)
+            {
+                throw errorf(var->name, "enum member is not constant expression");
+            }
+        }
+    }
+
+    return record;
+}
+
+Struct_Expr *Parser::parse_struct(Ast_Expr *prev, Token scope_begin)
+{
+    if (prev->kind() != Ast_Expr_Id)
+    {
+        std::string_view got = ast_expr_kind_name(prev->kind());
+        throw errorf(scope_begin, "expected type identifier before struct expression got '{:s}'", got);
+    }
+
+    Id_Expr *id = (Id_Expr *)prev;
+    if (id->entity->kind() != Ast_Entity_Struct)
+    {
+        std::string_view got = ast_entity_kind_name(id->entity->kind());
+        throw errorf(id->name, "identifier does not refer to a struct type, got '{:s}'", got);
+    }
+
+    Struct_Type *type = (Struct_Type *)id->entity;
+    Struct_Expr *expr = ast.push_expr(Struct_Expr{});
+    expr->type = type;
+    expr->members = parse_member(type, 0);
+
+    return expr;
+}
+
+Member_Expr *Parser::parse_member(Struct_Type *type, s32 n)
+{
+    
+}
+
 Ast_Expr *Parser::stack_find(Ast_Expr_Kind kind) const
 {
     for (auto it = stack.rbegin(); it != stack.rend(); it++)
@@ -714,7 +826,7 @@ Error Parser::error_expected(Token token, u64 types)
     }
     stream.print("got '{:s}'", token_typename(Token_Type{token.type}));
 
-    return bee_errorf("parser error", scanner.src, token, "{:s}", stream.str());
+    return bee_errorf("parser error", scanner.source, token, "{:s}", stream.str());
 }
 
 } // namespace bee
