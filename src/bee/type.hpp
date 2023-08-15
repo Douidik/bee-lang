@@ -8,7 +8,7 @@ namespace bee
 {
 struct Var_Expr;
 struct Ast_Entity;
-struct Ast_Frame;
+struct Frame;
 
 struct Void_Type : Ast_Entity_Impl<Ast_Entity_Void>
 {
@@ -31,13 +31,13 @@ struct Atom_Type : Ast_Entity_Impl<Ast_Entity_Atom>
 
 struct Struct_Type : Ast_Entity_Impl<Ast_Entity_Struct>
 {
-    Ast_Frame *frame;
+    Frame *frame;
     std::vector<Ast_Entity *> members;
 };
 
 struct Enum_Type : Ast_Entity_Impl<Ast_Entity_Enum>
 {
-    Ast_Frame *frame;
+    Frame *frame;
 };
 
 constexpr std::string_view atom_desc_name(Atom_Desc atom_desc)

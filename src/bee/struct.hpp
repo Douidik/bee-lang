@@ -5,11 +5,11 @@
 
 namespace bee
 {
-struct Ast_Frame;
+struct Frame;
 
 struct Struct_Type : Ast_Entity_Impl<Ast_Entity_Enum>
 {
-    Ast_Frame *frame;
+    Frame *frame;
 };
 
 } // namespace bee

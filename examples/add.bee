@@ -3,5 +3,5 @@
 	b := 2
 	c := 3
 
-	abc := a + b
+	abc := a + b + c
 }

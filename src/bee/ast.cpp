@@ -3,23 +3,10 @@
 namespace bee
 {
 
-Ast_Frame::~Ast_Frame()
-{
-    for (auto &[name, entity] : defs)
-        delete entity;
-}
-
 Ast::~Ast()
 {
-    for (Ast_Frame *frame : frames)
+    for (Frame *frame : frames)
         delete frame;
-}
-
-Ast_Entity *Ast_Frame::find(std::string_view name)
-{
-    if (auto match = defs.find(name); match != defs.end())
-        return match->second;
-    return owner != NULL ? owner->find(name) : NULL;
 }
 
 Compound_Expr *Ast::push_compound(Compound_Expr compound)
@@ -27,17 +14,26 @@ Compound_Expr *Ast::push_compound(Compound_Expr compound)
     return &compounds.emplace_back(compound);
 }
 
-Ast_Frame *Ast::push_frame(Ast_Frame *f)
+Frame *Ast::push_frame(Frame *f)
 {
     f->owner = frame;
     frame = f;
+
+    if (frame->owner != NULL)
+        frame->depth = frame->owner->depth + 1;
+    else
+        frame->depth = 0;
+    
+    if (frame->depth >= Ast_Frame_Limit)
+        throw errorf("frame depth limit exceeded");
+    
     frames.insert(f);
     return f;
 }
-    
-Ast_Frame *Ast::pop_frame()
+
+Frame *Ast::pop_frame()
 {
-    Ast_Frame *pop = frame;
+    Frame *pop = frame;
     frame = frame->owner;
     return pop;
 }

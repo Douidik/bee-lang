@@ -1,0 +1,38 @@
+Vec3 :: struct
+{
+	x: f32
+	y: f32
+	z: f32
+
+	[] :: (v: &Vec3, n: usize) -> f32
+	{
+		return (f32[3](v))[n]
+	}
+
+	dim :: (&Vec3) -> usize
+	{
+		return 3
+	}
+}
+
+Vec2 :: struct
+{
+	x: f32
+	y: f32
+
+	[] :: (v: &Vec2, n: usize) -> f32
+	{
+		return (f32[2](v))[n]
+	}
+
+	dim :: (&Vec2) -> usize
+	{
+		return 2
+	}
+}
+
+Vec :: interface
+{
+	dim :: (&Vec) -> usize
+	[]  :: (&Vec3, n: usize) -> f32
+}

@@ -11,7 +11,7 @@ namespace bee
 struct Ast;
 struct Ast_Expr;
 struct Ast_Entity;
-struct Ast_Frame;
+struct Frame;
 
 struct Ast_Dump_Header
 {
@@ -21,10 +21,10 @@ struct Ast_Dump_Header
 
 struct Ast_Dump : Stream
 {
-    Ast &ast;
+    Ast *ast;
 
-    Ast_Dump(Ast &ast);
-    void frame_dump(Ast_Dump_Header h, Ast_Frame *frame);
+    Ast_Dump(Ast *ast);
+    void frame_dump(Ast_Dump_Header h, Frame *frame);
     void expr_dump(Ast_Dump_Header h, Ast_Expr *ast_expr);
     void entity_dump(Ast_Dump_Header h, Ast_Entity *ast_entity);
 };

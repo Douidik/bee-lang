@@ -1,0 +1,117 @@
+#include "bytecode.hpp"
+#include "ast.hpp"
+#include "var.hpp"
+#include <utility>
+
+namespace bee
+{
+
+Bytecode::Bytecode(Ast *ast) :
+    ast{ast},
+    none{
+        Bc_Object_None,
+        Bc_Address_None,
+        NULL,
+    }
+{
+}
+
+std::span<Bc_Instruction> Bytecode::gen()
+{
+    gen_expr(ast->main_scope);
+    return instructions;
+}
+
+Bc_Object *Bytecode::gen_expr(Ast_Expr *expr)
+{
+    switch (expr->kind())
+    {
+    case Ast_Expr_Unary:
+        return gen_unary((Unary_Expr *)expr);
+
+    default:
+        throw errorf("TODO! gen_expr() support '{}'", ast_expr_kind_name(expr->kind()));
+    }
+}
+
+Bc_Object *Bytecode::gen_unary(Unary_Expr *unary)
+{
+    Bc_Object *operand = gen_expr(unary->expr);
+
+    Ast_Entity *type = NULL;
+    switch (operand->type)
+    {
+    case Bc_Object_Var:
+        type = operand->var->type;
+        break;
+    case Bc_Object_Imm:
+        type = operand->imm->type;
+        break;
+    default:
+        throw errorf("cannot use object for unary expression");
+    }
+
+    if (unary->op.type & (Token_Add))
+    {
+        return operand;
+    }
+    else if (unary->op.type & (Token_Sub))
+    {
+        Bc_Object *sub = object_imm(type);
+        Bc_Instruction mov;
+        Bc_Instruction bin_not;
+        Bc_Instruction increment;
+
+        mov.opcode = Bc_Mov;
+        mov.prev = ;
+
+        not_instruction.opcode = Bc_Not;
+        not_instruction.operand = sub;
+    }
+    else if (unary->op.type & (Token_Decrement | Token_Increment | Token_Bin_Not | Token_Not))
+    {
+        constexpr auto token_to_opcode = [](Token_Type type) -> Bc_Opcode {
+            switch (type)
+            {
+            case Token_Decrement:
+                return Bc_Decrement;
+            case Token_Increment:
+                return Bc_Increment;
+            case Token_Bin_Not:
+                return Bc_Bin_Not;
+            case Token_Not:
+                return Bc_Not;
+            default:
+                return Bc_None;
+            }
+        };
+
+        Bc_Instruction *instruction = &instructions.emplace_back();
+        instruction->opcode = token_to_opcode(unary->op.type);
+        instruction->operand =
+    }
+    else
+    {
+        throw errorf("TODO! gen_unary() support '{}'", token_typename(unary->op.type));
+    }
+}
+
+Bc_Object *Bytecode::gen_binary(Binary_Expr *binary) {}
+Bc_Object *Bytecode::gen_scope(Scope_Expr *scope) {}
+Bc_Object *Bytecode::gen_var(Var_Expr *def) {}
+Bc_Object *Bytecode::gen_var_id(Id_Expr *id) {}
+Bc_Object *Bytecode::gen_function(Function_Expr *def) {}
+Bc_Object *Bytecode::gen_invoke(Invoke_Expr *invoke) {}
+Bc_Object *Bytecode::gen_atom(Ast_Entity *entity, void *data) {}
+Bc_Object *Bytecode::gen_return(Return_Expr *return_expr) {}
+Bc_Object *Bytecode::gen_if(If_Expr *if_expr) {}
+
+Bc_Object *Bytecode::object_var(Var *var)
+{
+    Bc_Object *object = &objects.push({});
+    // object->
+}
+
+Bc_Object *Bytecode::object_imm(Ast_Entity *type) {}
+
+} // namespace bee

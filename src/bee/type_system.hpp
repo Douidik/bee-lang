@@ -1,11 +1,13 @@
 #ifndef BEE_TYPE_SYSTEM_HPP
 #define BEE_TYPE_SYSTEM_HPP
 
-#include "ast.hpp"
 #include "bee_error.hpp"
 
 namespace bee
 {
+struct Ast;
+struct Ast_Expr;
+struct Ast_Entity;
 
 enum Type_Cast : u32
 {

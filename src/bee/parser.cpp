@@ -10,20 +10,21 @@
 namespace bee
 {
 
-Parser::Parser(Scanner &scanner) : scanner{scanner} {}
+Parser::Parser(Scanner *scanner, Ast *ast) : scanner{scanner}, type_system{ast->type_system}, ast{ast} {}
 
 void Parser::parse()
 {
-    ast.main_frame = ast.push_frame(new Ast_Frame{});
-    ast.main_scope = ast.push_expr(Scope_Expr{});
-    type_system.std_types(&ast);
+    ast->main_frame = ast->push_frame(new Frame{});
+    ast->main_scope = ast->push_expr(Scope_Expr{});
+    type_system.std_types(ast);
 
-    ast.main_scope->compound = parse_compound(Token_NewLine, Token_Eof);
+    ast->main_scope->compound = parse_compound(Token_NewLine, Token_Eof);
+    ast->pop_frame();
 }
 
 Compound_Expr *Parser::parse_compound(u64 sep_types, u64 end_types)
 {
-    Compound_Expr *compound = ast.push_compound(Compound_Expr{});
+    Compound_Expr *compound = ast->push_compound(Compound_Expr{});
     Ast_Expr *expr = NULL;
     Token end;
 
@@ -67,7 +68,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     {
         if (Token sign = scan(Token_Add | Token_Sub); sign.ok)
         {
-            Unary_Expr *unary_expr = ast.push_expr(Unary_Expr{});
+            Unary_Expr *unary_expr = ast->push_expr(Unary_Expr{});
             unary_expr->op = sign;
             unary_expr->order = Post_Expr;
             unary_expr->expr = parse_one_expr(NULL, end_types);
@@ -98,12 +99,11 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     case Token_Scope_Begin: {
         if (prev != NULL)
         {
-            return parse_struct((Id_Expr *)prev);
+            return parse_struct((Id_Expr *)prev, token);
         }
-
-        Ast_Frame *frame = ast.push_frame(new Ast_Frame{});
+        Frame *frame = ast->push_frame(new Frame{});
         Scope_Expr *scope = parse_scope(frame, Token_NewLine, Token_Scope_End);
-        ast.pop_frame();
+        ast->pop_frame();
         return scope;
     }
 
@@ -116,7 +116,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
             }
             return parse_invoke((Id_Expr *)prev, token);
         }
-        ast.push_frame(new Ast_Frame{});
+        ast->push_frame(new Frame{});
         Ast_Expr *expr = parse_expr(Token_Nested_End);
         scan(Token_Nested_End);
 
@@ -126,7 +126,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         }
         else
         {
-            ast.pop_frame();
+            ast->pop_frame();
             return expr;
         }
     }
@@ -138,20 +138,11 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         return parse_for(token, end_types);
 
     case Token_Id: {
-        Id_Expr *expr = ast.push_expr(Id_Expr{});
-        expr->name = token;
-        expr->entity = ast.frame->find(token.expr);
-
-        if (Token def = scan(Token_Define | Token_Declare); def.ok)
-            return parse_def(expr, def, end_types);
-        if (!expr->entity)
-            throw errorf(token, "use of unknown identifier");
-
-        return expr;
+        return parse_id(token, end_types);
     }
 
     case Token_Char: {
-        Char_Expr *expr = ast.push_expr(Char_Expr{});
+        Char_Expr *expr = ast->push_expr(Char_Expr{});
         std::string_view body = token.expr.substr(1, token.expr.size() - 1);
         std::string data = un_escape_string(body);
         if (data.size() < 1)
@@ -168,7 +159,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     }
 
     case Token_Str: {
-        Str_Expr *expr = ast.push_expr(Str_Expr{});
+        Str_Expr *expr = ast->push_expr(Str_Expr{});
         std::string_view body = token.expr.substr(1, token.expr.size() - 1);
         expr->data = un_escape_string(body);
         return expr;
@@ -177,7 +168,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     case Token_Int_Bin:
     case Token_Int_Dec:
     case Token_Int_Hex: {
-        Int_Expr *expr = ast.push_expr(Int_Expr{});
+        Int_Expr *expr = ast->push_expr(Int_Expr{});
         std::from_chars_result error;
 
         switch (token.type)
@@ -205,7 +196,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
     }
 
     case Token_Float: {
-        Float_Expr *expr = ast.push_expr(Float_Expr{});
+        Float_Expr *expr = ast->push_expr(Float_Expr{});
         std::from_chars_result error = std::from_chars(token.expr.begin(), token.expr.end(), expr->data);
         if (error.ec != std::errc{})
         {
@@ -250,7 +241,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
         }
 
         Function *function = function_expr->function;
-        Return_Expr *return_expr = ast.push_expr(Return_Expr{});
+        Return_Expr *return_expr = ast->push_expr(Return_Expr{});
         return_expr->expr = parse_expr(end_types);
 
         Ast_Entity *return_type = type_system.expr_type(return_expr->expr);
@@ -276,7 +267,7 @@ Ast_Expr *Parser::parse_one_expr(Ast_Expr *prev, u64 end_types)
 
 Unary_Expr *Parser::parse_increment(Token op, Ast_Expr *prev, u64 end_types)
 {
-    Unary_Expr *unary = ast.push_expr(Unary_Expr{});
+    Unary_Expr *unary = ast->push_expr(Unary_Expr{});
     unary->op = op;
 
     if (prev != NULL)
@@ -313,10 +304,26 @@ Ast_Expr *Parser::parse_condition(Token kw, Ast_Expr *expr)
     return expr;
 }
 
+Ast_Expr *Parser::parse_id(Token name, u64 end_types)
+{
+    Id_Expr *id = ast->push_expr(Id_Expr{});
+    id->name = name;
+    id->entity = ast->frame->find_def(name.expr);
+
+    if (Token def = scan(Token_Define | Token_Declare); def.ok)
+        parse_def(id, def, end_types);
+    if (!id->entity)
+        throw errorf(name, "use of unknown identifier");
+    if (id->entity->kind() & Ast_Entity_Var)
+        on_var_reference((Var *)id->entity);
+
+    return id;
+}
+
 If_Expr *Parser::parse_if(Token kw, u64 end_types)
 {
-    If_Expr *expr = ast.push_expr(If_Expr{});
-    expr->frame = ast.push_frame(new Ast_Frame{});
+    If_Expr *expr = ast->push_expr(If_Expr{});
+    expr->frame = ast->push_frame(new Frame{});
     expr->condition = parse_condition(kw, parse_expr(Token_Scope_Begin));
 
     if (!expr->condition)
@@ -341,7 +348,7 @@ If_Expr *Parser::parse_if(Token kw, u64 end_types)
         }
     }
 
-    ast.pop_frame();
+    ast->pop_frame();
     stack.pop_back();
     expr->scope_if = (Scope_Expr *)scope_if;
     expr->scope_else = (Scope_Expr *)scope_else;
@@ -351,7 +358,7 @@ If_Expr *Parser::parse_if(Token kw, u64 end_types)
 
 Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
 {
-    Ast_Frame *frame = ast.push_frame(new Ast_Frame{});
+    Frame *frame = ast->push_frame(new Frame{});
     Ast_Expr *expr = parse_expr(Token_Semicolon | Token_Scope_Begin);
 
     // TODO!
@@ -360,7 +367,7 @@ Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
 
     if (Token start_sep = scan(Token_Semicolon); start_sep.ok)
     {
-        For_Expr *for_expr = ast.push_expr(For_Expr{});
+        For_Expr *for_expr = ast->push_expr(For_Expr{});
         for_expr->frame = frame;
         for_expr->start = expr;
         for_expr->condition = parse_condition(start_sep, parse_expr(Token_Semicolon));
@@ -379,16 +386,16 @@ Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
         }
         for_expr->scope = (Scope_Expr *)scope;
 
-        return ast.pop_frame(), for_expr;
+        return ast->pop_frame(), for_expr;
     }
 
     if (Token token = peek(Token_Scope_Begin); !expr or token.ok)
     {
-        For_While_Expr *for_expr = ast.push_expr(For_While_Expr{});
+        For_While_Expr *for_expr = ast->push_expr(For_While_Expr{});
 
         if (!expr)
         {
-            Int_Expr *true_expr = ast.push_expr(Int_Expr{});
+            Int_Expr *true_expr = ast->push_expr(Int_Expr{});
             true_expr->data = 1;
             true_expr->size = 1;
             expr = true_expr;
@@ -404,16 +411,16 @@ Ast_Expr *Parser::parse_for(Token kw, u64 end_types)
         }
         for_expr->scope = (Scope_Expr *)scope;
 
-        return ast.pop_frame(), for_expr;
+        return ast->pop_frame(), for_expr;
     }
 
     throw errorf(kw, "cannot parse 'for' expression");
     return NULL;
 }
 
-Scope_Expr *Parser::parse_scope(Ast_Frame *frame, u64 sep_types, u64 end_types)
+Scope_Expr *Parser::parse_scope(Frame *frame, u64 sep_types, u64 end_types)
 {
-    Scope_Expr *expr = ast.push_expr(Scope_Expr{});
+    Scope_Expr *expr = ast->push_expr(Scope_Expr{});
     expr->frame = frame;
     expr->compound = parse_compound(sep_types, end_types);
 
@@ -427,7 +434,7 @@ Scope_Expr *Parser::parse_scope(Ast_Frame *frame, u64 sep_types, u64 end_types)
 
 Binary_Expr *Parser::parse_binary_expr(Ast_Expr *prev, Ast_Expr *post, Token op)
 {
-    Binary_Expr *expr = ast.push_expr(Binary_Expr{});
+    Binary_Expr *expr = ast->push_expr(Binary_Expr{});
     expr->op = op;
     expr->prev = prev;
     expr->post = post;
@@ -526,14 +533,18 @@ Ast_Expr *Parser::parse_def(Id_Expr *id, Token op, u64 end_types)
 
 Var_Expr *Parser::parse_var(Id_Expr *id, Token op, Ast_Expr *expr, Ast_Entity *type, u64 end_types)
 {
-    Var_Expr *var_expr = ast.push_expr(Var_Expr{});
+    Var_Expr *var_expr = ast->push_expr(Var_Expr{});
     var_expr->op = op;
     var_expr->name = id->name;
+    var_expr->expr = expr;
 
     var_expr->var = new Var{};
     var_expr->var->name = id->name.expr;
     var_expr->var->type = type;
-    ast.frame->push(var_expr->var);
+    ast->frame->push_def(var_expr->var);
+
+    if (var_expr->expr != NULL)
+        on_var_reference(var_expr->var);
 
     if (Token comma = scan(Token_Comma); comma.ok)
     {
@@ -547,19 +558,19 @@ Var_Expr *Parser::parse_var(Id_Expr *id, Token op, Ast_Expr *expr, Ast_Entity *t
 
 Typedef_Expr *Parser::parse_typedef(Id_Expr *id, Token op, Record_Expr *record, u64 end_types)
 {
-    Typedef_Expr *typedef_expr = ast.push_expr(Typedef_Expr{});
+    Typedef_Expr *typedef_expr = ast->push_expr(Typedef_Expr{});
 
     switch (record->kw.type)
     {
     case Token_Struct: {
-        Struct_Type *type = ast.frame->push(new Struct_Type{});
+        Struct_Type *type = ast->frame->push_def(new Struct_Type{});
         type->name = id->name.expr;
         type->frame = record->frame;
         typedef_expr->type = type;
     }
 
     case Token_Enum: {
-        Enum_Type *type = ast.frame->push(new Enum_Type{});
+        Enum_Type *type = ast->frame->push_def(new Enum_Type{});
         type->name = id->name.expr;
         type->frame = record->frame;
         typedef_expr->type = type;
@@ -579,27 +590,28 @@ Function_Expr *Parser::parse_function(Id_Expr *id, Token op, Signature_Expr *sig
     function->params = signature->params;
     function->type = signature->type;
     function->name = id->name.expr;
-    ast.frame->push(function);
+    ast->frame->push_def(function);
 
-    Function_Expr *function_expr = ast.push_expr(Function_Expr{});
+    Function_Expr *function_expr = ast->push_expr(Function_Expr{});
 
     // Signature and function scope shares the same frame
     function_expr->function = function;
     Ast_Expr *scope = NULL;
 
-    ast.push_frame(signature->frame);
+    ast->push_frame(signature->frame);
     stack.push_back(function_expr);
 
     scope = parse_one_expr(NULL, 0);
 
     stack.pop_back();
-    ast.pop_frame();
+    ast->pop_frame();
 
     if (!scope or scope->kind() != Ast_Expr_Scope)
     {
         throw errorf(id->name, "expected function scope after signature");
     }
     function_expr->scope = (Scope_Expr *)scope;
+    Register_Allocator{function_expr, regs, type_system}.allocate();
 
     return function_expr;
 }
@@ -612,7 +624,7 @@ Invoke_Expr *Parser::parse_invoke(Id_Expr *id, Token token)
     }
 
     Function *function = (Function *)id->entity;
-    Invoke_Expr *invoke = ast.push_expr(Invoke_Expr{});
+    Invoke_Expr *invoke = ast->push_expr(Invoke_Expr{});
     invoke->function = function;
     invoke->args = parse_argument(function->params, token);
     return invoke;
@@ -640,7 +652,7 @@ Argument_Expr *Parser::parse_argument(Var_Expr *param, Token token)
         throw errorf(token, "cannot cast argument of type '{:s}' into '{:s}'", expr_typename, param_typename);
     }
 
-    Argument_Expr *argument = ast.push_expr(Argument_Expr{});
+    Argument_Expr *argument = ast->push_expr(Argument_Expr{});
     argument->expr = expr;
 
     Token sep = scan(Token_Comma | Token_Nested_End);
@@ -669,10 +681,10 @@ Signature_Expr *Parser::parse_signature(Var_Expr *params, u64 end_types)
         type = parse_type(arrow, end_types);
     }
 
-    Signature_Expr *signature = ast.push_expr(Signature_Expr{});
+    Signature_Expr *signature = ast->push_expr(Signature_Expr{});
     signature->params = params;
     signature->type = type;
-    signature->frame = ast.pop_frame();
+    signature->frame = ast->pop_frame();
 
     return signature;
 }
@@ -695,9 +707,9 @@ Ast_Entity *Parser::parse_type(Token token, u64 end_types)
 
 Record_Expr *Parser::parse_record(Token kw, u64 end_types)
 {
-    Record_Expr *record = ast.push_expr(Record_Expr{});
+    Record_Expr *record = ast->push_expr(Record_Expr{});
     record->kw = kw;
-    record->frame = ast.push_frame(new Ast_Frame{});
+    record->frame = ast->push_frame(new Frame{});
 
     if (Token scope_begin = scan(Token_Scope_Begin); !scope_begin.ok)
     {
@@ -747,7 +759,7 @@ Struct_Expr *Parser::parse_struct(Ast_Expr *prev, Token scope_begin)
     }
 
     Struct_Type *type = (Struct_Type *)id->entity;
-    Struct_Expr *expr = ast.push_expr(Struct_Expr{});
+    Struct_Expr *expr = ast->push_expr(Struct_Expr{});
     expr->type = type;
     expr->members = parse_member(type, 0);
 
@@ -756,7 +768,7 @@ Struct_Expr *Parser::parse_struct(Ast_Expr *prev, Token scope_begin)
 
 Member_Expr *Parser::parse_member(Struct_Type *type, s32 n)
 {
-    
+    return NULL;
 }
 
 Ast_Expr *Parser::stack_find(Ast_Expr_Kind kind) const
@@ -770,9 +782,16 @@ Ast_Expr *Parser::stack_find(Ast_Expr_Kind kind) const
     return NULL;
 }
 
+void Parser::on_var_reference(Var *var)
+{
+    if (!var->begin)
+        var->begin = ast->expr_count;
+    var->end = ast->expr_count;
+}
+
 bool Parser::eof() const
 {
-    return token_queue.empty() and scanner.eof();
+    return token_queue.empty() and scanner->eof();
 }
 
 Token Parser::peek(u64 types)
@@ -782,7 +801,7 @@ Token Parser::peek(u64 types)
     if (token_queue.size() > 0)
         token = token_queue.front();
     else
-        token = token_queue.emplace_back(scanner.tokenize());
+        token = token_queue.emplace_back(scanner->tokenize());
 
     token.ok = token.type & types;
     return token;
@@ -799,7 +818,7 @@ Token Parser::scan(u64 types)
     }
     else
     {
-        token = scanner.tokenize();
+        token = scanner->tokenize();
     }
 
     token.ok = token.type & types;
@@ -826,7 +845,7 @@ Error Parser::error_expected(Token token, u64 types)
     }
     stream.print("got '{:s}'", token_typename(Token_Type{token.type}));
 
-    return bee_errorf("parser error", scanner.source, token, "{:s}", stream.str());
+    return bee_errorf("parser error", scanner->source, token, "{:s}", stream.str());
 }
 
 } // namespace bee

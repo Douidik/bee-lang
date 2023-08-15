@@ -2,6 +2,7 @@
 #include "function.hpp"
 #include "type.hpp"
 #include "var.hpp"
+#include "ast.hpp"
 
 namespace bee
 {
@@ -172,7 +173,7 @@ void Type_System::std_types(Ast *ast)
         atom->name = name;
         atom->desc = desc;
         atom->size = size;
-        return ast->frame->push(atom);
+        return ast->frame->push_def(atom);
     };
 
     f16_type = atom("f16", Atom_Float, 2);
@@ -193,7 +194,7 @@ void Type_System::std_types(Ast *ast)
 
     void_type = new Void_Type;
     void_type->name = "void";
-    ast->frame->push(void_type);
+    ast->frame->push_def(void_type);
 }
 
 Ast_Entity *Type_System::compose_atom(u32 desc, u32 size)

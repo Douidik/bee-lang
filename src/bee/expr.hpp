@@ -10,7 +10,7 @@
 namespace bee
 {
 struct Ast_Expr;
-struct Ast_Frame;
+struct Frame;
 struct Ast_Entity;
 struct Var;
 struct Function;
@@ -101,7 +101,7 @@ struct Nested_Expr : Ast_Expr_Impl<Ast_Expr_Nested>
 struct Scope_Expr : Ast_Expr_Impl<Ast_Expr_Scope>
 {
     Compound_Expr *compound;
-    Ast_Frame *frame;
+    Frame *frame;
 };
 
 struct Return_Expr : Ast_Expr_Impl<Ast_Expr_Return>
@@ -151,7 +151,7 @@ struct Signature_Expr : Ast_Expr_Impl<Ast_Expr_Signature>
 {
     Var_Expr *params;
     Ast_Entity *type;
-    Ast_Frame *frame;
+    Frame *frame;
 };
 
 struct Function_Expr : Ast_Expr_Impl<Ast_Expr_Function>
@@ -177,7 +177,7 @@ struct If_Expr : Ast_Expr_Impl<Ast_Expr_If>
     Ast_Expr *condition;
     Scope_Expr *scope_if;
     Scope_Expr *scope_else;
-    Ast_Frame *frame;
+    Frame *frame;
 };
 
 // TODO!
@@ -193,14 +193,14 @@ struct For_Expr : Ast_Expr_Impl<Ast_Expr_For>
     Ast_Expr *condition;
     Ast_Expr *iteration;
     Scope_Expr *scope;
-    Ast_Frame *frame;
+    Frame *frame;
 };
 
 struct For_While_Expr : Ast_Expr_Impl<Ast_Expr_For_While>
 {
     Ast_Expr *condition;
     Scope_Expr *scope;
-    Ast_Frame *frame;
+    Frame *frame;
 };
 struct Typedef_Expr : Ast_Expr_Impl<Ast_Expr_Typedef>
 {
@@ -213,7 +213,7 @@ struct Record_Expr : Ast_Expr_Impl<Ast_Expr_Record>
 {
     Token kw;
     Scope_Expr *scope;
-    Ast_Frame *frame;
+    Frame *frame;
 };
  
 struct Member_Expr : Ast_Expr_Impl<Ast_Expr_Member>

@@ -6,18 +6,18 @@
 namespace bee
 {
 
-s32 frame_depth(Ast_Frame *frame)
+s32 frame_depth(Frame *frame)
 {
     return frame ? frame_depth(frame->owner) + 1 : 0;
 }
 
-Ast_Dump::Ast_Dump(Ast &ast) : ast(ast)
+Ast_Dump::Ast_Dump(Ast *ast) : ast(ast)
 {
-    frame_dump({"main_frame", 0}, ast.main_frame);
-    expr_dump({"main_scope", 0}, ast.main_scope);
+    frame_dump({"main_frame", 0}, ast->main_frame);
+    expr_dump({"main_scope", 0}, ast->main_scope);
 }
 
-void Ast_Dump::frame_dump(Ast_Dump_Header h, Ast_Frame *frame)
+void Ast_Dump::frame_dump(Ast_Dump_Header h, Frame *frame)
 {
     if (!frame or frame->defs.empty())
     {
@@ -207,7 +207,7 @@ void Ast_Dump::entity_dump(Ast_Dump_Header h, Ast_Entity *ast_entity)
     {
     case Ast_Entity_Var: {
         Var *var = (Var *)ast_entity;
-        print("{} var [name: '{}']\n", h, var->name);
+        print("{} var [name: '{}', begin: {}, end: {}]\n", h, var->name, var->begin, var->end);
         entity_dump({"type", h.depth + 1}, var->type);
         break;
     }

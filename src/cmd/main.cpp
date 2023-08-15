@@ -2,9 +2,17 @@
 #include "core.hpp"
 #include "parser.hpp"
 #include "regex/format.hpp"
+#include "vm/vm.hpp"
 #include <fmt/core.h>
 #include <fstream>
 using namespace bee;
+
+// Register Regs_X86[]{
+//     "eax",
+//     "ebx",
+//     "ecx",
+//     "edx",
+// };
 
 s32 main(s32 argc, const char *argv[])
 {
@@ -23,12 +31,15 @@ s32 main(s32 argc, const char *argv[])
     std::string src{std::istreambuf_iterator{fstream}, {}};
     src.push_back('\n');
     Scanner scanner{src, bee_syntax_map()};
-    Parser parser{scanner};
-    parser.parse();
+    Ast ast{};
+    Parser{&scanner, &ast}.parse();
 
-    Ast_Dump ast_dump{parser.ast};
+    Ast_Dump ast_dump{&ast};
     fmt::print("{:s}\n", ast_dump.str());
     fmt::print("{:s}\n", src);
+
+    // Vm vm{&parser.ast};
+    // fmt::print("program returned {}\n", vm.run());
 }
 
 // s32 main(s32 argc, const char *argv[])

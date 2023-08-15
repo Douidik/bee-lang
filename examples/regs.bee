@@ -1,0 +1,27 @@
+// With [eax, ebx, ecx, edx]
+
+main :: () -> s32
+{
+	ebx: s32
+	eax := 1
+	ebx = eax + 1
+	ecx := 2
+	edx := 3
+	stack0 := 4
+	stack4 := 5
+
+	// stack_0: s64	
+	// eax: s32
+	// stack_8: s32
+
+	// eax = 1
+	// ebx := 2
+	// ecx: s64
+	// edx: s32
+	// ecx = 3
+	// edx = 4
+	// stack_0 = 5
+	// ecx = stack_0 + eax
+	// stack_8 = 6
+	// eax_2 := 1
+}

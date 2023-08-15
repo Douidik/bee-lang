@@ -1,8 +1,8 @@
 #ifndef BEE_ENTITY_HPP
 #define BEE_ENTITY_HPP
 
-#include "core.hpp"
 #include "bitset.hpp"
+#include "core.hpp"
 #include "error.hpp"
 #include <string>
 
@@ -40,6 +40,7 @@ struct Ast_Entity_Impl : Ast_Entity
     }
 };
 
+    
 constexpr std::string_view ast_entity_kind_name(Ast_Entity_Kind kind)
 {
     switch (kind)
